@@ -7,7 +7,6 @@ import it.unibo.big.TemporalScale.NoScale
 import it.unibo.big.Utils._
 import it.unibo.big.temporal.TemporalCellBuilder
 import it.unibo.big.temporal.TemporalCellBuilder._
-import it.unibo.big.test.TemporalTrajectoryFlowTest
 import org.apache.log4j.{Level, LogManager, Logger}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
@@ -93,9 +92,9 @@ object CTM {
     println(s"\n--- Writing to \n\t$outTable\n\t$outTable2\n")
     if (droptable) {
       println("Dropping tables.")
-      spark.sql(s"drop table if exists $DB_NAME.$transactionTable")
-      spark.sql(s"drop table if exists $DB_NAME.$cellToIDTable")
-      spark.sql(s"drop table if exists $DB_NAME.$neighborhoodTable")
+      spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$transactionTable")
+      spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$cellToIDTable")
+      spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$neighborhoodTable")
     }
 
     //noinspetion ScalaStyle
@@ -104,7 +103,7 @@ object CTM {
       /* ***************************************************************************************************************
        * Trajectory mapping: mapping trajectories to trajectory abstractions
        * **************************************************************************************************************/
-      spark.sql(s"use $DB_NAME") // set the output trajectory database
+      if (DB_NAME.nonEmpty) spark.sql(s"use $DB_NAME") // set the output trajectory database
       // the transaction table is only generated once, skip the generation if already generated
       if (!spark.catalog.tableExists(DB_NAME, transactionTable)) {
         // Create time bin from timestamp in a temporal table `inputDFtable`
@@ -520,7 +519,7 @@ object CTM {
         minsup = conf.minsup()
       )
     } else {
-      TemporalTrajectoryFlowTest.runTest(conf.droptable())
+      // TemporalTrajectoryFlowTest.runTest(conf.droptable())
     }
   }
 }

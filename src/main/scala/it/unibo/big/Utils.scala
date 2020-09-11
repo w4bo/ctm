@@ -15,7 +15,7 @@ import scala.math._
  */
 object Utils {
   /** DB name */
-  val DB_NAME = "CTM"
+  var DB_NAME = "CTM"
   /** Define the default cell size in meters. */
   val DEFAULT_CELL_SIDE: Int = 123
   /** Default storage threshold */
