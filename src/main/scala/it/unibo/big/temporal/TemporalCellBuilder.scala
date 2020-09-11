@@ -86,24 +86,6 @@ object TemporalCellBuilder {
    * @param limit        trajectories to retrieve
    */
   def mapToReferenceSystem(sparkSession: SparkSession, inTable: String, transactionTable: String, minSize: Int, minSup: Int, limit: Int): Unit = {
-    // val createTbl2 =
-    //   s"""
-    //      | select t.*
-    //      | from (
-    //      |   select distinct
-    //      |     $USER_ID_FIELD, $TRAJECTORY_ID_FIELD, $LATITUDE_FIELD_NAME, $LONGITUDE_FIELD_NAME, $TIME_BUCKET_COLUMN_NAME,
-    //      |     dense_rank() over (partition by "foo" order by concat_ws($USER_ID_FIELD, '_', $TRAJECTORY_ID_FIELD) asc) as itemid, // TODO partition by "foo" centralizes everything in a partition
-    //      |     count(*)     over (partition by concat_ws($USER_ID_FIELD, '_', $TRAJECTORY_ID_FIELD)) as sup,
-    //      |     dense_rank() over (partition by "foo" order by concat_ws($LATITUDE_FIELD_NAME, '_', $LONGITUDE_FIELD_NAME, '_', $TIME_BUCKET_COLUMN_NAME) asc) as tid,
-    //      |     count(*)     over (partition by concat_ws($LATITUDE_FIELD_NAME, '_', $LONGITUDE_FIELD_NAME, '_', $TIME_BUCKET_COLUMN_NAME)) as size
-    //      |   from $inTable
-    //      |   order by $USER_ID_FIELD asc, $TRAJECTORY_ID_FIELD asc, $LATITUDE_FIELD_NAME asc, $LONGITUDE_FIELD_NAME asc, $TIME_BUCKET_COLUMN_NAME asc
-    //      | ) t
-    //      | where t.sup >= $minSup and t.size >= $minSize ${if (limit == Int.MaxValue) "" else "and itemid <= " + limit}
-    //      |""".stripMargin
-    // val storeHiveTbl2 = s"create table if not exists $transactionTable as $createTbl2"
-    // println(s"--- Generating `$transactionTable` table\n$storeHiveTbl2")
-    // sparkSession.sql(storeHiveTbl2).count()
     import sparkSession.sqlContext.implicits._
     sparkSession.sql(s"select $USER_ID_FIELD, $TRAJECTORY_ID_FIELD, $LATITUDE_FIELD_NAME, $LONGITUDE_FIELD_NAME, $TIME_BUCKET_COLUMN_NAME from $inTable")
       .rdd
@@ -180,7 +162,7 @@ object TemporalCellBuilder {
    * @param neighbourhoodTable the neighbourhood table name.
    * @return a cell-cell map containing for each cell its neighbourhood, an empty object if no spatio-temporal bound is specified.
    */
-  def broadcastNeighborhood(spark: SparkSession, sparkContext: SparkContext, epss: Option[Double], epst: Option[Double], neighbourhoodTable: String): Option[Broadcast[Map[Tid, RoaringBitmap]]] = {
+  def broadcastNeighborhood(spark: SparkSession, epss: Option[Double], epst: Option[Double], neighbourhoodTable: String): Map[Tid, RoaringBitmap] = {
     val basicQuery = s"select tid, neigh from $neighbourhoodTable where "
     var finalQuery = basicQuery
     epss match {
@@ -194,18 +176,15 @@ object TemporalCellBuilder {
     }
     if (!(finalQuery equals basicQuery)) {
       print("--- Broadcasting brdNeighborhood... ")
-      Some(
-        sparkContext.broadcast(
-          spark
-            .sql(finalQuery)
-            .rdd
-            .map(r => (r.get(0).asInstanceOf[Int], RoaringBitmap.bitmapOf(r.get(1).asInstanceOf[Int])))
-            .reduceByKey(RoaringBitmap.or(_, _))
-            .collect()
-            .toMap)
-      )
+      spark
+        .sql(finalQuery)
+        .rdd
+        .map(r => (r.get(0).asInstanceOf[Int], RoaringBitmap.bitmapOf(r.get(1).asInstanceOf[Int])))
+        .reduceByKey(RoaringBitmap.or(_, _))
+        .collect()
+        .toMap
     } else {
-      None
+      Map()
     }
   }
 }

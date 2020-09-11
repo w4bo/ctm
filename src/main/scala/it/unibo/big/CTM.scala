@@ -8,6 +8,7 @@ import it.unibo.big.Utils._
 import it.unibo.big.temporal.TemporalCellBuilder
 import it.unibo.big.temporal.TemporalCellBuilder._
 import org.apache.log4j.{Level, LogManager, Logger}
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{SaveMode, SparkSession}
@@ -18,142 +19,9 @@ import org.rogach.scallop.ScallopConf
 /** This is the main class of the project */
 object CTM {
 
-  // scalastyle:off
-  /**
-   * Run CTM
-   * @param inTable      Input table
-   * @param debugData    (debug purpose) If non empty, use this instead of `inTable` (for debug purpose, see `TemporalTrajectoryFlowTest.scala`)
-   * @param minsize      Minimum size of the co-movement patterns
-   * @param minsup       Minimum support of the co-movement patterns (i.e., how long trajectories moved together)
-   * @param storage_thr  Store co-movement patterns if they exceed this threshold.
-   * @param repfreq      repfreq \in N. Repartition frequency (how frequently co-movement are repartitioned)
-   * @param limit        Limit the size of the input dataset
-   * @param nexecutors   Number of executors
-   * @param ncores       Number of cores
-   * @param maxram       Available RAM
-   * @param timeScale    {"daily", "weekly", "absolute", "notime"}. Daily = Day hour (0, ..., 23). Weekly = Weekday (1, ..., 7).
-   * @param unit_t       Time unit in seconds (1 = 1s, 3600 = 1h), map timestamp to the given temporal unit (ignored for weekly and daily)
-   * @param bin_t        bin_t \in N (0, 1, ..., n). Size of the temporal quanta (expressed as a multiplier of timeBucketUnit). If 0, consider only a single bucket
-   * @param eps_t        eps_t \in N (1, ..., n). Allow eps_t temporal neighbors
-   * @param bin_s        bin_s \in N (1, ..., n). Multiply cell size 123m x bin_s
-   * @param eps_s        eps_s \in N (1, ..., n). Allow eps_s spatial neighbors
-   * @param returnResult (debug purpose) If True, return the results as a centralized array. Otherwise, store it to hive table
-   * @param droptable    Whether the support table should be dropped and created brand new
-   * @param euclidean    Whether the coordinates in the dataset are Polar or Euclidean
-   * @return If `returnResult`, return the results as a centralized array. Otherwise, returns an empty array
-   */
-  def run(inTable: String = "foo", minsize: Int, minsup: Int,
-          storage_thr: Int = STORAGE_THR, repfreq: Int = 1, limit: Int = Int.MaxValue, // EFFICIENCY PARAMETERS
-          nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM, // SPARK CONFIGURATION
-          timeScale: TemporalScale, unit_t: Int = SECONDS_IN_HOUR, bin_t: Int = 1, eps_t: Double = Double.PositiveInfinity,
-          bin_s: Int, eps_s: Double = Double.PositiveInfinity, // EFFECTIVENESS PARAMETERS
-          debugData: Seq[(Tid, Vector[Itemid])] = Seq(), // INPUTS
-          returnResult: Boolean = false,
-          droptable: Boolean = false, euclidean: Boolean = false): (Long, Array[(RoaringBitmap, Int, Int)]) = {
-    val linesToPrint = 20
-    val debug: Boolean = debugData.nonEmpty
-    val partitions: Int = nexecutors * ncores * 3
-
-    /* *****************************************************************************************************************
-     * CONFIGURING TABLE NAMES
-     * *****************************************************************************************************************/
-    val temporaryTableName: String = // Define the generic name of the support table, based on the relevant parameters for cell creation.
-        s"-tbl_${inTable.replace("trajectory.", "")}" +
-        s"-lmt_${if (limit == Int.MaxValue) "Infinity" else limit}" +
-        s"-size_$minsize" +
-        s"-sup_$minsup" +
-        s"-bins_$bin_s" +
-        s"-ts_${timeScale.value}" +
-        s"-bint_$bin_t" +
-        s"-unitt_$unit_t"
-    val conf = // Define the generic name for the run, including temporary table name
-        "CTM" + temporaryTableName +
-        s"-epss_${if (eps_s.isInfinite) eps_s.toString else eps_s.toInt}" +
-        s"-epst_${if (eps_t.isInfinite) eps_t.toString else eps_t.toInt}" +
-        s"-freq_${repfreq}" +
-        s"-sthr_${storage_thr}"
-
-    val outTable: String = conf.replace("-", "__")
-    val outTable2: String = s"results/CTM_stats.csv"
-    var transactionTable = s"tmp_transactiontable$temporaryTableName".replace("-", "__") // Trajectories mapped to cells
-    val cellToIDTable = s"tmp_celltoid$temporaryTableName".replace("-", "__") // Cells with ids
-    val neighborhoodTable = s"tmp_neighborhood$temporaryTableName".replace("-", "__") // Neighborhoods
-
-    /* ------------------------------------------------------------------------
-     * Spark Environment Setup
-     * ------------------------------------------------------------------------ */
-    val spark: SparkSession = startSparkContext(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn")
+  def CTM(spark: SparkSession, trans: RDD[(Tid, Itemid)], brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], minsup: Int, minsize: Int): (Long, Array[(RoaringBitmap, Tid, Tid)]) = {
     val sc = spark.sparkContext
-    sc.setLogLevel("ERROR")
-    Logger.getLogger("org").setLevel(Level.ERROR)
-    Logger.getLogger("akka").setLevel(Level.ERROR)
-    LogManager.getRootLogger.setLevel(Level.ERROR)
-
-    println(s"\n--- Writing to \n\t$outTable\n\t$outTable2\n")
-    if (droptable) {
-      println("Dropping tables.")
-      spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$transactionTable")
-      spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$cellToIDTable")
-      spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$neighborhoodTable")
-    }
-
-    //noinspetion ScalaStyle
     import spark.implicits._
-    if (!debug) {
-      /* ***************************************************************************************************************
-       * Trajectory mapping: mapping trajectories to trajectory abstractions
-       * **************************************************************************************************************/
-      if (DB_NAME.nonEmpty) spark.sql(s"use $DB_NAME") // set the output trajectory database
-      // the transaction table is only generated once, skip the generation if already generated
-      if (!spark.catalog.tableExists(DB_NAME, transactionTable)) {
-        // Create time bin from timestamp in a temporal table `inputDFtable`
-        val inputDFtable = inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length) + "_temp"
-        println(s"--- Getting data from $inTable...")
-        getData(spark, inTable, inputDFtable, timeScale, bin_t, unit_t, euclidean, bin_s)
-        if (debug || returnResult) { spark.sql(s"select * from $inputDFtable limit $linesToPrint").show() }
-        // create trajectory abstractions from the `inputDFtable`, and store it to the `transactionTable` table
-        println(s"--- Generating $transactionTable...")
-        mapToReferenceSystem(spark, inputDFtable, transactionTable, minsize, minsup, limit)
-        spark.sql(s"select * from $transactionTable limit $linesToPrint").show()
-        // create the quanta of the reference system from the `inputDFtable` temporal table, and store it to the `cellToIDTable`
-        getQuanta(spark, transactionTable, cellToIDTable)
-        spark.sql(s"select * from $cellToIDTable limit $linesToPrint").show()
-        // create the table with all neighbors for each cell
-        if (!eps_s.isInfinite || !eps_t.isInfinite) {
-          println(s"--- Generating $neighborhoodTable...")
-          createNeighborhood(spark, cellToIDTable, neighborhoodTable, timeScale, euclidean)
-          spark.sql(s"select * from $neighborhoodTable limit $linesToPrint").show()
-        }
-      }
-    } else {
-      transactionTable = inTable
-    }
-    /* ***************************************************************************************************************
-     * END - Trajectory mapping
-     * **************************************************************************************************************/
-
-    /* ***************************************************************************************************************
-     * Creating the transactional dataset
-     * **************************************************************************************************************/
-    // This RDD reads from the database the transaction table (aka the input table). This is the Dataset according to
-    // Carpenter definition, here the CellIDa are the rows and the trajectories are the features.
-    val trans: RDD[(Tid, Itemid)] =
-    (if (!debug) { // Read data from the input table in the form of CellID:Short, ItemID:Int, with ItemID = trajectory id
-      val sql = s"select tid, itemid from $transactionTable"
-      println(s"--- Input: $sql")
-      spark
-        .sql(sql)
-        .rdd
-        // .filter(i => i.get(2).asInstanceOf[Long] >= minsup && i.get(3).asInstanceOf[Long] >= minsize)
-        .map(i => (i.get(1).asInstanceOf[Int], Array(i.get(0).asInstanceOf[Int])))
-    } else { // Read data from the given RDD
-      spark.sparkContext.parallelize(debugData.flatMap({ case (cell: Tid, items: Vector[Itemid]) => items.map(item => (item, Array(cell))) }))
-    })
-      .reduceByKey(_ ++ _, partitions)
-      .flatMap(t => t._2.map(c => (c, t._1)))
-      .cache()
-
-    // Exit if no transaction exists.
     if (trans.count() == 0) {
       println("Empty transactions")
       return (0, Array())
@@ -179,55 +47,12 @@ object CTM {
     val nTransactions: Long = brdTrajInCell.value.size
     val brdTrajInCell_bytes = brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum
     println(brdTrajInCell_bytes + "B")
-    if (debug || returnResult) { brdTrajInCell.value.foreach(println) }
+    if (debug || returnResult) {
+      brdTrajInCell.value.foreach(println)
+    }
     /* *****************************************************************************************************************
      * END - BROADCASTING TRAJECTORIES IN CELL
      * ****************************************************************************************************************/
-
-    /* *****************************************************************************************************************
-     * BROADCASTING CELLS IN TRAJECTORIES. Broadcast the Dataset according to Carpenter algorithm in the form of
-     * trajectory ID --> Set(CellID1,...., CellIDn). Also use a bitmap for performance reasons.
-     * ****************************************************************************************************************/
-    //    print("--- Broadcasting brdCellInTraj (i.e., tidInItem)... ")
-    //    val brdCellInTraj: Broadcast[Map[Itemid, RoaringBitmap]] = sc.broadcast(
-    //      trans
-    //        .map({ case (tid: Tid, itemid: Itemid) => (itemid, RoaringBitmap.bitmapOf(tid)) })
-    //        .reduceByKey((aTransaction, anotherTransaction) => {
-    //          val m = RoaringBitmap.or(aTransaction, anotherTransaction)
-    //          m.runOptimize()
-    //          m
-    //        })
-    //        .map(i => Array(i._1 -> i._2))
-    //        .treeReduce(_ ++ _)
-    //        .toMap
-    //    )
-    //    val brdCellInTraj_bytes = brdCellInTraj.value.values.map(_.getSizeInBytes + 4).sum
-    //    println(brdCellInTraj_bytes + "B")
-    //    val nItems: Long = brdCellInTraj.value.size
-    //    if (debug || returnResult) { brdCellInTraj.value.foreach(println) }
-    /* *****************************************************************************************************************
-     * END - BROADCASTING CELLS IN TRAJECTORIES
-     * ****************************************************************************************************************/
-
-    /* *****************************************************************************************************************
-     * BROADCASTING NEIGHBORHOOD
-     * ****************************************************************************************************************/
-    /**Define a neighborhood for each trajectoryID and broadcast it (only if a neighborhood metrics is defined).
-     * Carpenter by default would not include this, thanks to this the algorithm will be able to use bounds on time and space */
-    val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] =
-      if (!eps_s.isInfinite || !eps_t.isInfinite) {
-        val spaceThreshold = if (eps_s.isInfinite) { None } else { Some(eps_s * bin_s * DEFAULT_CELL_SIDE) }
-        val timeThreshold = if (eps_t.isInfinite) { None } else { Some(eps_t) }
-        TemporalCellBuilder.broadcastNeighborhood(spark, sc, spaceThreshold, timeThreshold, neighborhoodTable)
-      } else { None }
-    if (brdNeighborhood.isDefined) {
-      val brdTrajInCell_bytes = brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum
-      println(brdTrajInCell_bytes + "B")
-      if (debug || returnResult) {
-        brdNeighborhood.get.value.toList.sortBy(_._1).foreach(tuple => println(s"tid: ${tuple._1}, neighborhood: ${tuple._2}"))
-      }
-    }
-
 
     /**
      * Given a roaringbitmap of cell IDs compute all their neighbours as a RoaringBitMap.
@@ -243,14 +68,6 @@ object CTM {
         }
       }))
       ret
-      // var ret = RoaringBitmap.bitmapOf()
-      // brdNeighborhood.get.value.filter(entry => cellSet.contains(entry._1)).foreach(_._2.foreach(value => ret.add(value) ))
-      // val neighborHoodMap = brdNeighborhood.get.value
-      // cellSet.forEach(toJavaConsumer((cell: Integer) => {
-      //   val cellNeigbourBitMap = RoaringBitmap.bitmapOf(neighborHoodMap.getOrElse(cell, Array()): _*)
-      //   ret = RoaringBitmap.or(cellNeigbourBitMap, ret)
-      // }))
-      // ret
     }
 
     /**
@@ -265,13 +82,10 @@ object CTM {
       val ret: RoaringBitmap = RoaringBitmap.bitmapOf()
       allCells.forEach(toJavaConsumer((cell: Integer) => {
         val elem = brdNeighborhood.get.value.get(cell)
-        if (cell >= minCell || elem.isDefined && elem.get.contains(minCell)) { ret.add(cell) }
-      } ))
-      // val minCell = x.toArray.min.toShort
-      // RoaringBitmap.bitmapOf(allCells.toArray
-      //   .map(_.toShort)
-      //   .filter(cellID => { cellID >= minCell || brdNeighborhood.get.value.getOrElse(cellID, Array()).contains(minCell) })
-      //   .map(_.toInt): _*)
+        if (cell >= minCell || elem.isDefined && elem.get.contains(minCell)) {
+          ret.add(cell)
+        }
+      }))
       ret
     }
     /* *****************************************************************************************************************
@@ -282,18 +96,17 @@ object CTM {
      * Given a set of trajectoriesID, create a bitmap containing all the CellIDs that appear in at least one trajectory.
      * Given an itemset, this is used to find all the next cells to explore (i.e., to define R). This is dual to the
      * support, where we are looking for all the SHARED transactions.
+     *
      * @param itemset a set of trajectory IDs as a bitmap.
      * @return a new RoaringBitmap containing the union of all the cellIDs.
      */
     def allCellsInTrajectories(itemset: RoaringBitmap): RoaringBitmap = {
-      RoaringBitmap.bitmapOf(brdTrajInCell.value.filter({ case (_, transaction) => RoaringBitmap.intersects(itemset, transaction) }).keys.toSeq:_*)
-      // var union: RoaringBitmap = null
-      // trajectorySet.forEach(toJavaConsumer((value: Integer) => if (union == null) union = brdCellInTraj.value(value) else union = RoaringBitmap.or(union, brdCellInTraj.value(value))))
-      // if (union == null) RoaringBitmap.bitmapOf() else union
+      RoaringBitmap.bitmapOf(brdTrajInCell.value.filter({ case (_, transaction) => RoaringBitmap.intersects(itemset, transaction) }).keys.toSeq: _*)
     }
 
     /**
      * Given a set of trajectoryIDs, create a bitmap containing all the common cells between all the Trajectories.
+     *
      * @param itemset a set of trajectoryIDs.
      * @return a Bitmap containing all the cells common to all the trajectories specified by the input.
      */
@@ -311,28 +124,36 @@ object CTM {
     /**
      * Whether an itemset should be persisted. An itemset must be persisted when its support is above threshold
      * and its current support equals to the real support (i.e., the itemset has been completely explored).
+     *
      * @param trajectorySet current cluster.
      * @return false if the itemset has been fully explored (i.e., it should not be extended further).
      */
     def toExtend(trajectorySet: RoaringBitmap, support: RoaringBitmap): Boolean = {
-        !(support.getCardinality >= minsup)
-        // !(coh(trajectorySet) >= minCoh.value && support(trajectorySet).getCardinality >= supMin)
+      !(support.getCardinality >= minsup)
     }
 
     /**
      * Keep only the cluster having a good size and support.
+     *
      * @param trajectorySet the current trajectory set considered.
      * @param x             a set containing the current support of the trajectory set.
      * @param r             a set containing all possible cellset to be added to x.
      * @return true if the trajectory set is on its maximal path and has good size and support, false otherwise.
      */
     def filterCluster(trajectorySet: RoaringBitmap, x: RoaringBitmap, r: RoaringBitmap): Boolean = {
-      // require(!RoaringBitmap.intersects(x, r), "They must not overlap")
       var sup = support(trajectorySet)
       if (trajectorySet.getCardinality >= minsize && (x.getCardinality + r.getCardinality) >= minsup) {
-        if (brdNeighborhood.isDefined) { sup = filterPreviousExistingCell(sup, x) }
-        (if (brdNeighborhood.isEmpty) { x.contains(sup.getIntIterator.next()) } else { true }) && RoaringBitmap.andNot(RoaringBitmap.andNot(sup, r), x).isEmpty
-      } else { false }
+        if (brdNeighborhood.isDefined) {
+          sup = filterPreviousExistingCell(sup, x)
+        }
+        (if (brdNeighborhood.isEmpty) {
+          x.contains(sup.getIntIterator.next())
+        } else {
+          true
+        }) && RoaringBitmap.andNot(RoaringBitmap.andNot(sup, r), x).isEmpty
+      } else {
+        false
+      }
     }
 
     /* *****************************************************************************************************************
@@ -371,10 +192,10 @@ object CTM {
 
     /**
      * Print a clusters RDD to STDOUT
+     *
      * @param clusters the cluster RDD to print
      */
-    def printCluster(clusters: RDD[CarpenterRowSet]): Unit = if (debug || returnResult)
-      clusters.sortBy(i => -i._4.getCardinality).map(i => (i._1.toArray.toVector, i._2, i._3, i._4, support(i._1))).take(linesToPrint).foreach(println)
+    def printCluster(clusters: RDD[CarpenterRowSet]): Unit = if (debug || returnResult) clusters.sortBy(i => -i._4.getCardinality).map(i => (i._1.toArray.toVector, i._2, i._3, i._4, support(i._1))).take(linesToPrint).foreach(println)
 
     do {
       curIteration += 1
@@ -384,7 +205,11 @@ object CTM {
       countToExtend.reset()
 
       clusters =
-        (if (curIteration % repfreq == 0) { clusters.repartition(partitions) } else { clusters }) // Shuffle the data every few iterations
+        (if (curIteration % repfreq == 0) {
+          clusters.repartition(partitions)
+        } else {
+          clusters
+        }) // Shuffle the data every few iterations
           .flatMap({ case (lCluster: RoaringBitmap, extend: Boolean, x: RoaringBitmap, r: RoaringBitmap) =>
             // require(!RoaringBitmap.intersects(x, r), s"$x intersects $r")
             if (extend) { // If the cluster should be extended...
@@ -428,7 +253,11 @@ object CTM {
                 .filter({ case (c: RoaringBitmap, _: Boolean, x: RoaringBitmap, r: RoaringBitmap) => filterCluster(c, x, r) })
               // the current element has already been counted, if it has to be saved don't count it twice
               // do not also count the elements that will be checked in the next phase (i.e., for which filter returns true)
-              res.foreach(t => if (t._2) { countToExtend.add(1) } else { if (t._3.getCardinality >= minsup) countOk.add(1) })
+              res.foreach(t => if (t._2) {
+                countToExtend.add(1)
+              } else {
+                if (t._3.getCardinality >= minsup) countOk.add(1)
+              })
               res
             } else {
               Array((lCluster, extend, x, r))
@@ -458,7 +287,8 @@ object CTM {
               val itemsetSupp = itemset._2.getCardinality
               itemset._1.toArray.map(i => {
                 require(i >= 0, "itemid is below zero")
-                (uid + toAdd, i, itemsetSize, itemsetSupp) /*, icoh */ // val icoh = coh(itemset._1)
+                (uid + toAdd, i, itemsetSize, itemsetSupp) /*, icoh */
+                // val icoh = coh(itemset._1)
               })
             }).toDF("itemsetid", "itemid", "size", "support").write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(outTable)
           println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Done writing")
@@ -483,16 +313,213 @@ object CTM {
       }
 
     writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, unit_t, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell_bytes)
-
     sc.getPersistentRDDs.foreach(i => i._2.unpersist())
     spark.catalog.clearCache()
     spark.sqlContext.clearCache()
-    sc.stop
     (nItemsets, res)
+  }
+
+  val linesToPrint = 20
+  var debug: Boolean = _
+  var returnResult: Boolean = _
+  var partitions: Int = _
+  var inTable: String = _
+  var conf: String = _
+  var outTable: String = _
+  var outTable2: String = _
+  var transactionTable: String = _
+  var cellToIDTable: String = _
+  var neighborhoodTable: String = _
+  var storage_thr: Int  = _
+  var repfreq: Int  = _
+  var limit: Int  = _
+  var nexecutors: Int  = _
+  var ncores: Int  = _
+  var maxram: String  = _
+  var timeScale: TemporalScale  = _
+  var unit_t: Int = _
+  var bin_t: Int = _
+  var eps_t: Double = _
+  var bin_s: Int = _
+  var eps_s: Double = _
+  var euclidean: Boolean = _
+
+  // scalastyle:off
+  /**
+   * Run CTM
+   *
+   * @param inTable      Input table
+   * @param debugData    (debug purpose) If non empty, use this instead of `inTable` (for debug purpose, see `TemporalTrajectoryFlowTest.scala`)
+   * @param minsize      Minimum size of the co-movement patterns
+   * @param minsup       Minimum support of the co-movement patterns (i.e., how long trajectories moved together)
+   * @param storage_thr  Store co-movement patterns if they exceed this threshold.
+   * @param repfreq      repfreq \in N. Repartition frequency (how frequently co-movement are repartitioned)
+   * @param limit        Limit the size of the input dataset
+   * @param nexecutors   Number of executors
+   * @param ncores       Number of cores
+   * @param maxram       Available RAM
+   * @param timeScale    {"daily", "weekly", "absolute", "notime"}. Daily = Day hour (0, ..., 23). Weekly = Weekday (1, ..., 7).
+   * @param unit_t       Time unit in seconds (1 = 1s, 3600 = 1h), map timestamp to the given temporal unit (ignored for weekly and daily)
+   * @param bin_t        bin_t \in N (0, 1, ..., n). Size of the temporal quanta (expressed as a multiplier of timeBucketUnit). If 0, consider only a single bucket
+   * @param eps_t        eps_t \in N (1, ..., n). Allow eps_t temporal neighbors
+   * @param bin_s        bin_s \in N (1, ..., n). Multiply cell size 123m x bin_s
+   * @param eps_s        eps_s \in N (1, ..., n). Allow eps_s spatial neighbors
+   * @param returnResult (debug purpose) If True, return the results as a centralized array. Otherwise, store it to hive table
+   * @param droptable    Whether the support table should be dropped and created brand new
+   * @param euclidean    Whether the coordinates in the dataset are Polar or Euclidean
+   * @return If `returnResult`, return the results as a centralized array. Otherwise, returns an empty array
+   */
+  def run(inTable: String = "foo", minsize: Int, minsup: Int,
+          storage_thr: Int = STORAGE_THR, repfreq: Int = 1, limit: Int = Int.MaxValue, // EFFICIENCY PARAMETERS
+          nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM, // SPARK CONFIGURATION
+          timeScale: TemporalScale, unit_t: Int = SECONDS_IN_HOUR, bin_t: Int = 1, eps_t: Double = Double.PositiveInfinity,
+          bin_s: Int, eps_s: Double = Double.PositiveInfinity, // EFFECTIVENESS PARAMETERS
+          debugData: Seq[(Tid, Vector[Itemid])] = Seq(), neighs: Map[Tid, RoaringBitmap] = Map(), spark: Option[SparkSession] = None, // INPUTS
+          returnResult: Boolean = false,
+          droptable: Boolean = false, euclidean: Boolean = false): (Long, Array[(RoaringBitmap, Int, Int)]) = {
+    this.inTable = inTable
+    this.debug = debugData.nonEmpty
+    this.returnResult = returnResult
+    this.partitions = nexecutors * ncores * 3
+    this.storage_thr = storage_thr
+    this.repfreq = repfreq
+    this.limit = limit
+    this.nexecutors = nexecutors
+    this.ncores = ncores
+    this.maxram = maxram
+    this.timeScale = timeScale
+    this.unit_t = SECONDS_IN_HOUR
+    this.bin_t = 1
+    this.eps_t = eps_t
+    this.bin_s = bin_s
+    this.eps_s = eps_s
+    this.returnResult = returnResult
+    this.euclidean = euclidean
+
+    val temporaryTableName: String = // Define the generic name of the support table, based on the relevant parameters for cell creation.
+      s"-tbl_${inTable.replace("trajectory.", "")}" +
+        s"-lmt_${if (limit == Int.MaxValue) "Infinity" else limit}" +
+        s"-size_$minsize" +
+        s"-sup_$minsup" +
+        s"-bins_$bin_s" +
+        s"-ts_${timeScale.value}" +
+        s"-bint_$bin_t" +
+        s"-unitt_$unit_t"
+    conf = // Define the generic name for the run, including temporary table name
+      "CTM" + temporaryTableName +
+        s"-epss_${if (eps_s.isInfinite) eps_s.toString else eps_s.toInt}" +
+        s"-epst_${if (eps_t.isInfinite) eps_t.toString else eps_t.toInt}" +
+        s"-freq_${repfreq}" +
+        s"-sthr_${storage_thr}"
+
+    outTable = conf.replace("-", "__")
+    outTable2 = s"results/CTM_stats.csv"
+    var neighbors: Map[Tid, RoaringBitmap] = Map()
+    val trans: RDD[(Tid, Itemid)] =
+      if (debug) {
+        transactionTable = inTable
+        spark.get.sparkContext.parallelize(
+          debugData.flatMap({
+            case (cell: Tid, items: Vector[Itemid]) => items.map(item => (item, Array(cell)))
+          })
+        )        .reduceByKey(_ ++ _, partitions)
+          .flatMap(t => t._2.map(c => (c, t._1)))
+          .cache()
+      } else {
+        /* ------------------------------------------------------------------------
+         * Spark Environment Setup
+         * ------------------------------------------------------------------------ */
+          val spark: SparkSession = startSparkContext(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn")
+          val sc = spark.sparkContext
+          sc.setLogLevel("ERROR")
+          Logger.getLogger("org").setLevel(Level.ERROR)
+          Logger.getLogger("akka").setLevel(Level.ERROR)
+          LogManager.getRootLogger.setLevel(Level.ERROR)
+        /* *****************************************************************************************************************
+         * CONFIGURING TABLE NAMES
+         * *****************************************************************************************************************/
+
+        transactionTable = s"tmp_transactiontable$temporaryTableName".replace("-", "__") // Trajectories mapped to cells
+        cellToIDTable = s"tmp_celltoid$temporaryTableName".replace("-", "__") // Cells with ids
+        neighborhoodTable = s"tmp_neighborhood$temporaryTableName".replace("-", "__") // Neighborhoods
+
+        /* ***************************************************************************************************************
+         * Trajectory mapping: mapping trajectories to trajectory abstractions
+         * **************************************************************************************************************/
+        if (DB_NAME.nonEmpty) spark.sql(s"use $DB_NAME") // set the output trajectory database
+        // the transaction table is only generated once, skip the generation if already generated
+        if (!spark.catalog.tableExists(DB_NAME, transactionTable)) {
+          // Create time bin from timestamp in a temporal table `inputDFtable`
+          val inputDFtable = inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length) + "_temp"
+          println(s"--- Getting data from $inTable...")
+          getData(spark, inTable, inputDFtable, timeScale, bin_t, unit_t, euclidean, bin_s)
+          if (debug || returnResult) {
+            spark.sql(s"select * from $inputDFtable limit $linesToPrint").show()
+          }
+          // create trajectory abstractions from the `inputDFtable`, and store it to the `transactionTable` table
+          println(s"--- Generating $transactionTable...")
+          mapToReferenceSystem(spark, inputDFtable, transactionTable, minsize, minsup, limit)
+          spark.sql(s"select * from $transactionTable limit $linesToPrint").show()
+          // create the quanta of the reference system from the `inputDFtable` temporal table, and store it to the `cellToIDTable`
+          getQuanta(spark, transactionTable, cellToIDTable)
+          spark.sql(s"select * from $cellToIDTable limit $linesToPrint").show()
+          // create the table with all neighbors for each cell
+          if (!eps_s.isInfinite || !eps_t.isInfinite) {
+            println(s"--- Generating $neighborhoodTable...")
+            createNeighborhood(spark, cellToIDTable, neighborhoodTable, timeScale, euclidean)
+            spark.sql(s"select * from $neighborhoodTable limit $linesToPrint").show()
+          }
+        }
+
+        println(s"\n--- Writing to \n\t$outTable\n\t$outTable2\n")
+        if (droptable) {
+          println("Dropping tables.")
+          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$transactionTable")
+          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$cellToIDTable")
+          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$neighborhoodTable")
+        }
+        val sql = s"select tid, itemid from $transactionTable"
+        println(s"--- Input: $sql")
+        spark
+          .sql(sql)
+          .rdd
+          .map(i => (i.get(1).asInstanceOf[Int], Array(i.get(0).asInstanceOf[Int])))
+      }
+        .reduceByKey(_ ++ _, partitions)
+        .flatMap(t => t._2.map(c => (c, t._1)))
+        .cache()
+
+    if (debug) {
+      neighbors = neighs
+    } else {
+      /* *****************************************************************************************************************
+       * BROADCASTING NEIGHBORHOOD
+       * ****************************************************************************************************************/
+      /** Define a neighborhood for each trajectoryID and broadcast it (only if a neighborhood metrics is defined).
+       * Carpenter by default would not include this, thanks to this the algorithm will be able to use bounds on time and space */
+      neighbors =
+        if (!eps_s.isInfinite || !eps_t.isInfinite) {
+          val spaceThreshold = if (eps_s.isInfinite) { None } else { Some(eps_s * bin_s * DEFAULT_CELL_SIDE) }
+          val timeThreshold = if (eps_t.isInfinite) { None } else { Some(eps_t) }
+          TemporalCellBuilder.broadcastNeighborhood(spark.get, spaceThreshold, timeThreshold, neighborhoodTable)
+        } else {
+          Map()
+        }
+    }
+    val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] = if (neighbors.nonEmpty) { Some(spark.get.sparkContext.broadcast(neighbors)) } else { None }
+    if (brdNeighborhood.isDefined) {
+      val brdTrajInCell_bytes = brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum
+      println(brdTrajInCell_bytes + "B")
+      if (debug || returnResult) {
+        brdNeighborhood.get.value.toList.sortBy(_._1).foreach(tuple => println(s"tid: ${tuple._1}, neighborhood: ${tuple._2}"))
+      }
+    }
+    CTM(spark.get, trans, brdNeighborhood, minsup, minsize)
   }
 
   /**
    * Main of the whole application.
+   *
    * @param args arguments
    */
   def main(args: Array[String]): Unit = {
@@ -526,6 +553,7 @@ object CTM {
 
 /**
  * Class to be used to parse CLI commands, the values declared inside specify name and type of the arguments to parse.
+ *
  * @param arguments the programs arguments as an array of strings.
  */
 class TemporalTrajectoryFlowConf(arguments: Seq[String]) extends ScallopConf(arguments) {
