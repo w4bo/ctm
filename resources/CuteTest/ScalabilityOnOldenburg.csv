@@ -1,0 +1,5 @@
+dataset,mincoh,minsize,minsup,iterations,itemsets,time(ms),customtime,cellsize,eps,repartition,disabledpruning,storagethr,nexecutor,ncore,maxram,weeklyscale,timebucketthreshold,totalcells,trajectories
+final_oldenburg_cute_dataset,0.0,10,10,46222108,7354940,2971282, 3317626,1000,Infinity,1,true,0,9,3,12g,NoTimeScale,2.0,8192,50000
+final_oldenburg_cute_dataset,0.0,100,10,26666152,9572419,4941316, 10450297,1000,Infinity,1,true,0,9,3,12g,NoTimeScale,1.0,8192,400000
+final_oldenburg_cute_dataset,0.0,100,10,589528,37920,79776, 133085,1000,Infinity,1,true,0,9,3,12g,NoTimeScale,1.0,8192,50000
+final_oldenburg_cute_dataset,0.0,100,10,2660761,456359,391554, 580306,1000,Infinity,1,true,0,9,3,12g,NoTimeScale,1.0,8192,100000
