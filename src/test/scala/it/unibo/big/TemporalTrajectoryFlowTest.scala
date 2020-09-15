@@ -20,6 +20,7 @@ class TemporalTrajectoryFlowTest extends FunSuite with BeforeAndAfterEach with B
     sparkSession = SparkSession.builder()
       .master("yarn") // Delete this if run in cluster mode
       .appName("TemporalTrajectoryFlowTest") // Change this to a proper name
+      .config("spark.submit.deployMode", "client")
       .config("spark.broadcast.compress", "false")
       .config("spark.shuffle.compress", "false")
       .config("spark.shuffle.spill.compress", "false")

@@ -20,7 +20,7 @@ import org.rogach.scallop.ScallopConf
 object CTM {
 
   def CTM(spark: SparkSession, trans: RDD[(Tid, Itemid)], brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], minsup: Int, minsize: Int): (Long, Array[(RoaringBitmap, Tid, Tid)]) = {
-    val sc = spark.sparkContext
+    val spark.sparkContext = spark.sparkContext
     import spark.implicits._
     if (trans.count() == 0) {
       println("Empty transactions")
@@ -32,7 +32,7 @@ object CTM {
      * Also use RoaringbitMap for performance reason
      * ****************************************************************************************************************/
     print("--- Broadcasting brdTrajInCell (i.e., itemInTid)... ")
-    val brdTrajInCell: Broadcast[Map[Tid, RoaringBitmap]] = sc.broadcast(
+    val brdTrajInCell: Broadcast[Map[Tid, RoaringBitmap]] = spark.sparkContext.broadcast(
       trans
         .mapValues({ itemid: Itemid => RoaringBitmap.bitmapOf(itemid) })
         .reduceByKey((anItem, anotherItem) => {
@@ -160,8 +160,8 @@ object CTM {
      * Setting up the first cluster definition.
      * ****************************************************************************************************************/
     var curIteration: Int = 0
-    val countOk = sc.longAccumulator
-    val countToExtend = sc.longAccumulator
+    val countOk = spark.sparkContext.longAccumulator
+    val countToExtend = spark.sparkContext.longAccumulator
     var countStored: Long = 0
     var nItemsets: Long = 0
     var c: Long = 0
@@ -273,7 +273,7 @@ object CTM {
       /* ***************************************************************************************************************
        * Iteratively store the itemsets to free memory (if necessary)
        * **************************************************************************************************************/
-      val toAddIdx = sc.broadcast(countStored)
+      val toAddIdx = spark.sparkContext.broadcast(countStored)
       if (!returnResult && (countToExtend.value == 0 || nItemsets - countStored >= storage_thr)) {
         if (storage_thr > 0) {
           println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Writing itemsets to the database")
@@ -298,7 +298,7 @@ object CTM {
       }
 
       // Remove useless checkpoints from memory
-      sc.getPersistentRDDs.keys.toVector.sorted.dropRight(1).foreach(id => sc.getPersistentRDDs(id).unpersist(true))
+      spark.sparkContext.getPersistentRDDs.keys.toVector.sorted.dropRight(1).foreach(id => spark.sparkContext.getPersistentRDDs(id).unpersist(true))
       printCluster(clusters)
     } while (countToExtend.value > 0)
 
@@ -313,7 +313,7 @@ object CTM {
       }
 
     writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, unit_t, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell_bytes)
-    sc.getPersistentRDDs.foreach(i => i._2.unpersist())
+    spark.sparkContext.getPersistentRDDs.foreach(i => i._2.unpersist())
     spark.catalog.clearCache()
     spark.sqlContext.clearCache()
     (nItemsets, res)
@@ -426,9 +426,8 @@ object CTM {
         /* ------------------------------------------------------------------------
          * Spark Environment Setup
          * ------------------------------------------------------------------------ */
-          val spark: SparkSession = startSparkContext(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn")
-          val sc = spark.sparkContext
-          sc.setLogLevel("ERROR")
+          val spark: SparkSession = startSparkSession(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn")
+          spark.sparkContext.setLogLevel("ERROR")
           Logger.getLogger("org").setLevel(Level.ERROR)
           Logger.getLogger("akka").setLevel(Level.ERROR)
           LogManager.getRootLogger.setLevel(Level.ERROR)

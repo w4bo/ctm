@@ -210,7 +210,7 @@ object Utils {
    * @param maxram     maxram
    * @return start a new spark context
    */
-  def startSparkContext(appName: String = "CTM_test", nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM,
+  def startSparkSession(appName: String = "CTM_test", nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM,
                         shufflepartitions: Int = SPARK_SQL_TEST_SHUFFLE_PARTITIONS, master: String = "local[*]"): SparkSession =
     SparkSession.builder()
       .appName(appName)
