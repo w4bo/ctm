@@ -442,6 +442,13 @@ object CTM {
         /* ***************************************************************************************************************
          * Trajectory mapping: mapping trajectories to trajectory abstractions
          * **************************************************************************************************************/
+        println(s"\n--- Writing to \n\t$outTable\n\t$outTable2\n")
+        if (droptable) {
+          println("Dropping tables.")
+          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$transactionTable")
+          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$cellToIDTable")
+          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$neighborhoodTable")
+        }
         if (DB_NAME.nonEmpty) spark.sql(s"use $DB_NAME") // set the output trajectory database
         // the transaction table is only generated once, skip the generation if already generated
         if (!spark.catalog.tableExists(DB_NAME, transactionTable)) {
@@ -467,13 +474,6 @@ object CTM {
           }
         }
 
-        println(s"\n--- Writing to \n\t$outTable\n\t$outTable2\n")
-        if (droptable) {
-          println("Dropping tables.")
-          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$transactionTable")
-          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$cellToIDTable")
-          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$neighborhoodTable")
-        }
         val sql = s"select tid, itemid from $transactionTable"
         println(s"--- Input: $sql")
         spark
