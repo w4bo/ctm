@@ -17,7 +17,6 @@ class  TemporalTrajectoryFlowTest extends FunSuite with BeforeAndAfterEach with 
   @transient var hiveContext: SQLContext = _
 
   override def beforeAll(): Unit = {
-    Utils.DB_NAME = ""
     sparkSession = SparkSession.builder()
       .master("local[2]") // Delete this if run in cluster mode
       .appName("unit test") // Change this to a proper name
