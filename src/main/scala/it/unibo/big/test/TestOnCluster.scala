@@ -160,8 +160,15 @@ object TestOnCluster {
     val test_name = "SMOOTHER_CONTIGUITY_TWO_CHECK"
     println(s"----$test_name----")
 
-    val inputSet: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t5", "01\t0\t0\t7",
-      "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t5", "02\t0\t0\t7")
+    val inputSet: Array[String] =
+      Array("01\t0\t0\t1",
+            "01\t0\t0\t2",
+            "01\t0\t0\t5",
+            "01\t0\t0\t7",
+            "02\t0\t0\t1",
+            "02\t0\t0\t2",
+            "02\t0\t0\t5",
+            "02\t0\t0\t7")
 
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)

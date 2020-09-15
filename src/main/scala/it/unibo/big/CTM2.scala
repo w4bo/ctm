@@ -102,7 +102,11 @@ object CTM2 {
               marked += i // add the tile to the explored set
               c += 1 // increase the number of adjacent tile
               // for each neighbor of the current tile, if the neighbor is in the cluster support and it has been not explored yet ...
-              brdNeighborhood.get.value(i).forEach(toJavaConsumer(i => if (c < minsup && curSupport.contains(i) && !marked.contains(i)) { searchConnectedComponent(i) }))
+              val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
+              // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
+              if (neighborhood.isDefined) {
+                neighborhood.get.forEach(toJavaConsumer(i => if (c < minsup && curSupport.contains(i) && !marked.contains(i)) { searchConnectedComponent(i) }))
+              }
             }
             searchConnectedComponent(tile)
           }
