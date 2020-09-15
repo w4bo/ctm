@@ -9,14 +9,14 @@ object TestOnCluster {
 
   @transient val sparkSession: SparkSession = Utils.startSparkSession()
 
-  /** Alias for a cluster. */
-  type cuteCluster = (RoaringBitmap, Int, Int)
-  val dataLoader = TempTableLoader()
-  runTest(true)
-
-  /** Run all the tests. */
-  def runTest(dropTableFlag: Boolean): Unit = {
+  /**
+   * Main of the whole application.
+   *
+   * @param args arguments
+   */
+  def main(args: Array[String]): Unit = {
     println("---- ALL TEST START ----")
+    val dropTableFlag = true
     this.oldcuteTest(dropTableFlag)
     this.testAbsoluteContiguityClusters(dropTableFlag)
     this.testAbsoluteContiguityClustersNOResult(dropTableFlag)
@@ -35,6 +35,10 @@ object TestOnCluster {
     this.testWeeklySwarmClusters(dropTableFlag)
     println("---- ALL TEST FINISH ----")
   }
+
+  /** Alias for a cluster. */
+  type cuteCluster = (RoaringBitmap, Int, Int)
+  val dataLoader = TempTableLoader()
 
   def oldcuteTest(dropTableFlag: Boolean): Unit = {
     var res9 = CTM.run(droptable = dropTableFlag, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
