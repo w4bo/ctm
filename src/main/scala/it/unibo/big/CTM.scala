@@ -396,7 +396,6 @@ object CTM {
     this.returnResult = returnResult
     this.euclidean = euclidean
 
-    val sparkSession = spark.getOrElse(startSparkSession(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn"))
     val temporaryTableName: String = // Define the generic name of the support table, based on the relevant parameters for cell creation.
       s"-tbl_${inTable.replace("trajectory.", "")}" +
         s"-lmt_${if (limit == Int.MaxValue) "Infinity" else limit}" +
@@ -407,14 +406,15 @@ object CTM {
         s"-bint_$bin_t" +
         s"-unitt_$unit_t"
     conf = // Define the generic name for the run, including temporary table name
-      "CTM" + temporaryTableName +
-        s"-epss_${if (eps_s.isInfinite) eps_s.toString else eps_s.toInt}" +
-        s"-epst_${if (eps_t.isInfinite) eps_t.toString else eps_t.toInt}" +
-        s"-freq_${repfreq}" +
-        s"-sthr_${storage_thr}"
-
+    "CTM" + temporaryTableName +
+    s"-epss_${if (eps_s.isInfinite) eps_s.toString else eps_s.toInt}" +
+    s"-epst_${if (eps_t.isInfinite) eps_t.toString else eps_t.toInt}" +
+    s"-freq_${repfreq}" +
+    s"-sthr_${storage_thr}"
     outTable = conf.replace("-", "__")
     outTable2 = s"results/CTM_stats.csv"
+
+    val sparkSession = spark.getOrElse(startSparkSession(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn"))
     var neighbors: Map[Tid, RoaringBitmap] = Map()
     val trans: RDD[(Tid, Itemid)] =
       if (debug) {
