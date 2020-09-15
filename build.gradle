@@ -35,6 +35,11 @@ idea {
     }
 }
 
+task runTestOnCluster(type: Exec) {
+    workingDir "${buildDir}"
+    commandLine 'spark-submit --class it.unibo.big.TestOnCluster build/libs/CTM-all.jar'
+}
+
 dependencies {
     implementation "com.google.guava:guava:23.0" 
     implementation "org.apache.commons:commons-math3:3.6.1"
