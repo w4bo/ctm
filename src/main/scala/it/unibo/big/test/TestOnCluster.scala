@@ -15,7 +15,6 @@ object TestOnCluster {
    * @param args arguments
    */
   def main(args: Array[String]): Unit = {
-    println("---- ALL TEST START ----")
     val dropTableFlag = true
     this.oldcuteTest()
     this.testAbsoluteContiguityClusters(dropTableFlag)
@@ -33,7 +32,6 @@ object TestOnCluster {
     this.testWeeklySmootherContiguityClusters(dropTableFlag)
     this.testWeeklyFlockClusters(dropTableFlag)
     this.testWeeklySwarmClusters(dropTableFlag)
-    println("---- ALL TEST FINISH ----")
   }
 
   /** Alias for a cluster. */
@@ -52,6 +50,7 @@ object TestOnCluster {
    * Test a pattern where the trajectories are in three near cells.
    */
   def testAbsoluteContiguityClusters(dropTableFlag: Boolean): Unit = {
+    val test_name = "AbsoluteContiguityClusters"
     val absoluteContiguityInputSet: Array[String] =
       Array(
         "01\t0\t0\t1",
@@ -62,7 +61,7 @@ object TestOnCluster {
         "02\t0\t0\t3")
     val absoluteContiguityTableView = "simple_table_view"
     dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
-    val absoluteContiguityClusters = CTM.run(
+    val cuteClusters = CTM.run(
       droptable = true,
       inTable = absoluteContiguityTableView,
       minsize = 2,
@@ -73,18 +72,8 @@ object TestOnCluster {
       eps_t = 1,
       returnResult = true
     )
-
-    val expectedContiguityClusters = List((RoaringBitmap.bitmapOf(1, 2), 3))
-    assert(absoluteContiguityClusters._1 == expectedContiguityClusters.size,
-      s"""ABSOLUTE CONTIGUITY Clusters (size, uncomment the one below for more details):
-         | expct: $expectedContiguityClusters
-         | found: $absoluteContiguityClusters""".stripMargin
-    )
-    // require(clusterChecker(absoluteContiguityClusters._2, expectedContiguityClusters),
-    //   s"""ABSOLUTE CONTIGUITY Clusters (content):
-    //      | expct: $expectedContiguityClusters
-    //      | found: $absoluteContiguityClusters""".stripMargin)
-    println("----ABSOLUTE CONTIGUITY TEST: PASSED------")
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   /**
@@ -92,12 +81,10 @@ object TestOnCluster {
    */
   def testAbsoluteContiguityClustersNOResult(dropTableFlag: Boolean): Unit = {
     println("---- absolute contiguity no result test 1 temporal bucket size")
-
+    val test_name = "AbsoluteContiguityClustersNOResult"
     val absoluteContiguityInputSet: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t3", "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4")
-
     val absoluteContiguityTableView = "simple_table_view_NOresult"
     dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
-
     val absoluteContiguityClusters = CTM.run(
       droptable = dropTableFlag,
       inTable = absoluteContiguityTableView,
@@ -109,9 +96,7 @@ object TestOnCluster {
       eps_t = 1,
       returnResult = true
     )
-    absoluteContiguityClusters._2.foreach(println)
-    require(absoluteContiguityClusters._2.isEmpty, s"ABSOLUTE CONTIGUITY Clusters NO RESULT: result is not empty")
-    println("----ABSOLUTE CONTIGUITY TEST NO RESULT: PASSED------")
+    require(absoluteContiguityClusters._2.isEmpty, s"$test_name expected empty, got ${absoluteContiguityClusters._2.toSet}")
   }
 
   /**
@@ -120,8 +105,8 @@ object TestOnCluster {
   def testSmootherContiguityClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "SMOOTHER_CONTIGUITY_CHECK"
     println(s"----$test_name----")
-
-    val inputSet: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t4", "01\t0\t0\t6",
+    val inputSet: Array[String] = Array( //
+      "01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t4", "01\t0\t0\t6", //
       "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4", "02\t0\t0\t6")
 
     val tableName = s"tmp_$test_name"
@@ -138,19 +123,8 @@ object TestOnCluster {
       eps_t = 2,
       returnResult = true
     )
-
-    val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 4)
-    )
-    println("-----Expected results----")
-    expectedClusters.foreach(println)
-    println("-----Actual results----")
-    cuteClusters._2.foreach(println)
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
-    println(s"----$test_name: PASSED------")
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   /**
@@ -160,7 +134,8 @@ object TestOnCluster {
     val test_name = "SMOOTHER_CONTIGUITY_TWO_CHECK"
     println(s"----$test_name----")
     val inputSet: Array[String] =
-      Array("01\t0\t0\t1",
+      Array(
+        "01\t0\t0\t1",
         "01\t0\t0\t2",
         "01\t0\t0\t5",
         "01\t0\t0\t7",
@@ -182,15 +157,8 @@ object TestOnCluster {
       eps_t = 2,
       returnResult = true
     )
-    val expectedClusters = List((RoaringBitmap.bitmapOf(1, 2), 2))
-    //(RoaringBitmap.bitmapOf(1, 2), 2), (RoaringBitmap.bitmapOf(1, 2), 2)
-    println("-----Expected results----")
-    expectedClusters.foreach(println)
-    println("-----Actual results----")
-    cuteClusters._2.foreach(println)
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " + s"${expectedClusters.size}; found ${cuteClusters._1}")
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   /**
@@ -199,13 +167,11 @@ object TestOnCluster {
   def testSmootherContiguityClustersNOResult(dropTableFlag: Boolean): Unit = {
     val test_name = "SMOOTHER_CONTIGUITY_CHECK_NO_RESULT"
     println(s"----$test_name----")
-
-    val inputSet: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t5", "01\t0\t0\t7",
+    val inputSet: Array[String] = Array( //
+      "01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t5", "01\t0\t0\t7", //
       "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t5", "02\t0\t0\t7")
-
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-
     val cuteClusters = CTM.run(
       droptable = dropTableFlag,
       inTable = tableName,
@@ -217,13 +183,7 @@ object TestOnCluster {
       eps_t = 2,
       returnResult = true
     )
-
-
-    println(cuteClusters)
-
     require(cuteClusters._2.isEmpty, s"$test_name: expected to be empty; found ${cuteClusters._1}")
-
-    println(s"----$test_name: PASSED------")
   }
 
   /**
@@ -233,13 +193,11 @@ object TestOnCluster {
   def testExternalNeighbourClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "EXTERNAL_NEIGHBOUR_CHECK"
     println(s"----$test_name----")
-
-    val inputSet: Array[String] = Array("01\t10\t10\t1", "01\t0\t0\t3", "01\t0\t0\t4", "01\t0\t0\t5",
+    val inputSet: Array[String] = Array( //
+      "01\t10\t10\t1", "01\t0\t0\t3", "01\t0\t0\t4", "01\t0\t0\t5", //
       "02\t10\t10\t1", "02\t0\t0\t3", "02\t0\t0\t4", "02\t0\t0\t5")
-
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-
     val cuteClusters = CTM.run(
       droptable = dropTableFlag,
       inTable = tableName,
@@ -251,27 +209,8 @@ object TestOnCluster {
       eps_t = 1,
       returnResult = true
     )
-
-    val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 3)
-    )
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
-    println("-----Expected results----")
-
-    expectedClusters.foreach(println)
-
-    println("-----Actual results----")
-
-    cuteClusters._2.foreach(println)
-
-
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   /**
@@ -281,13 +220,11 @@ object TestOnCluster {
   def testExternalNeighbourInsideTheIDPathClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "EXTERNAL_PATH_NEIGHBOUR_CHECK"
     println(s"----$test_name----")
-
-    val inputSet: Array[String] = Array("01\t10\t10\t1", "01\t0\t0\t3", "01\t10\t10\t4", "01\t10\t10\t5",
+    val inputSet: Array[String] = Array( //
+      "01\t10\t10\t1", "01\t0\t0\t3", "01\t10\t10\t4", "01\t10\t10\t5", //
       "02\t10\t10\t1", "02\t0\t0\t3", "02\t10\t10\t4", "02\t10\t10\t5")
-
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-
     val cuteClusters = CTM.run(
       droptable = dropTableFlag,
       inTable = tableName,
@@ -299,26 +236,8 @@ object TestOnCluster {
       eps_t = 1,
       returnResult = true
     )
-
-    val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 3)
-    )
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
-    println("-----Expected results----")
-
-    expectedClusters.foreach(println)
-
-    println("-----Actual results----")
-
-    cuteClusters._2.foreach(println)
-
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   /**
@@ -361,7 +280,7 @@ object TestOnCluster {
       // (RoaringBitmap.bitmapOf(1, 2), 2),
       // (RoaringBitmap.bitmapOf(1, 2), 2)
     )
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
     println(s"----$test_name: PASSED------")
   }
 
@@ -396,14 +315,14 @@ object TestOnCluster {
       returnResult = true
     )
 
-    val expectedClusters = List(
+    val expectedClusters = Set(
       (RoaringBitmap.bitmapOf(0, 1), 2, 4),
       (RoaringBitmap.bitmapOf(1, 2), 2, 3),
       (RoaringBitmap.bitmapOf(2, 3), 2, 3),
       (RoaringBitmap.bitmapOf(3, 4), 2, 4),
       (RoaringBitmap.bitmapOf(4, 5), 2, 4)
     )
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   /**
@@ -437,12 +356,11 @@ object TestOnCluster {
       returnResult = true
     )
 
-    val expectedClusters = List(
+    val expectedClusters = Set(
       (RoaringBitmap.bitmapOf(2, 3), 2, 3),
       (RoaringBitmap.bitmapOf(4, 5), 2, 3)
     )
-
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   /**
@@ -476,24 +394,22 @@ object TestOnCluster {
       returnResult = true
     )
 
-    val expectedClusters = List(
+    val expectedClusters = Set(
       (RoaringBitmap.bitmapOf(0, 1), 2, 4),
       (RoaringBitmap.bitmapOf(1, 2), 2, 3),
       (RoaringBitmap.bitmapOf(2, 3), 2, 3),
       (RoaringBitmap.bitmapOf(3, 4), 2, 3),
       (RoaringBitmap.bitmapOf(4, 5), 2, 4)
     )
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   def testWeeklyContiguityData(dropTableFlag: Boolean): Unit = {
     val test_name = "WEEKLY_CONTIGUITY_DETECTION"
     println(s"----$test_name----")
-
     val monday10AMStamp = 1578910464L
     val monday11AMStamp = 1578914064L
     val monday12AMStamp = 1578917664L
-
     val inputSet: Array[String] =
       Array(
         s"01\t0\t0\t$monday10AMStamp",
@@ -502,10 +418,8 @@ object TestOnCluster {
         s"02\t0\t0\t$monday10AMStamp",
         s"02\t0\t0\t$monday11AMStamp",
         s"02\t0\t0\t$monday12AMStamp")
-
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
-
     val cuteClusters = CTM.run(
       timeScale = DailyScale,
       droptable = dropTableFlag,
@@ -517,11 +431,8 @@ object TestOnCluster {
       eps_t = 1,
       returnResult = true
     )
-
-    val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(0, 1), 2, 3)
-    )
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   /**
@@ -556,26 +467,8 @@ object TestOnCluster {
       returnResult = true
     )
 
-    val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 4)
-    )
-
-
-    println("-----Expected results----")
-
-    expectedClusters.foreach(println)
-
-    println("-----Actual results----")
-
-    cuteClusters._2.foreach(println)
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
   /**
@@ -610,27 +503,8 @@ object TestOnCluster {
       returnResult = true
     )
 
-    val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 2),
-      (RoaringBitmap.bitmapOf(1, 2), 2)
-    )
-
-
-    println("-----Expected results----")
-
-    expectedClusters.foreach(println)
-
-    println("-----Actual results----")
-
-    cuteClusters._2.foreach(println)
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(1, 2), 2, 4))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
   }
 
   /**
@@ -663,38 +537,7 @@ object TestOnCluster {
       returnResult = true
     )
 
-    val expectedClusters = List((RoaringBitmap.bitmapOf(1, 2), 2))
-
-    println("-----Expected results----")
-
-    expectedClusters.foreach(println)
-
-    println("-----Actual results----")
-
-    cuteClusters._2.foreach(println)
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " + s"${expectedClusters.size}; found ${cuteClusters._1}")
-
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" + s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 2))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
-
-  /**
-   * Function to check if two clusters has the same items and support.
-   *
-   * @return true if two clusters has the same items and support, false otherwise.
-   */
-  private def iscuteClustersEquals: ((RoaringBitmap, Int), (RoaringBitmap, Int)) => Boolean = (c1, c2) =>
-    c1._1.toArray.forall(c2._1.toArray.contains(_)) && c1._2 == c2._2
-
-  /**
-   * Check if two arrays of clusters containsexactly the same elements.
-   *
-   * @param resultClusterArray   the array of clusters obtained by the cute computation.
-   * @param expectedClusterArray the excpected array of clusters.
-   * @return true if both arrays contains the same elements, false otherwise.
-   */
-  private def clusterChecker(resultClusterArray: Array[cuteCluster], expectedClusterArray: List[(RoaringBitmap, Int)]): Boolean =
-    expectedClusterArray.forall(ep => resultClusterArray.map(c => (c._1, c._3)).exists(iscuteClustersEquals(_, ep)))
 }
