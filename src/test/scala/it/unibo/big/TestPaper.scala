@@ -14,7 +14,6 @@ import scala.collection.mutable
 class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll {
 
   @transient var sparkSession: SparkSession = _
-  @transient var sc: SparkContext = _
 
   /*  Cell indexes withing the tessellation
    *  1 -  2 -  3 -  4 -  5 -  6 -  7
@@ -64,15 +63,14 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       .config("spark.io.compression.codec", "lzf")
       .getOrCreate()
     GeoSparkSQLRegistrator.registerAll(sparkSession)
-    sc = sparkSession.sparkContext
-    sc.setLogLevel("ERROR")
+    sparkSession.sparkContext.setLogLevel("ERROR")
     Logger.getLogger("org").setLevel(Level.ERROR)
     Logger.getLogger("akka").setLevel(Level.ERROR)
     LogManager.getRootLogger.setLevel(Level.ERROR)
   }
 
   override def afterAll(): Unit = {
-    sc.stop()
+    sparkSession.sparkContext.stop()
   }
 
   test("test neighborhood generation") {
@@ -118,7 +116,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   test("3") {
-    /* -- Test 15 --------------------------------------------------------------------------------------------------- */
     val data15: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(0, 1, 2)),
       (2, Vector(0, 1)),
@@ -131,7 +128,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   test("4") {
-    /* -- Test 14 --------------------------------------------------------------------------------------------------- */
     val data14: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(1, 2, 3, 4, 5)),
       (2, Vector(2, 3, 4, 6)),

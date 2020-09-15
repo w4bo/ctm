@@ -14,7 +14,6 @@ import org.scalatest._
 class  TemporalTrajectoryFlowTest extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll {
 
   @transient var sparkSession: SparkSession = _
-  @transient var sc: SparkContext = _
   @transient var hiveContext: SQLContext = _
 
   override def beforeAll(): Unit = {
@@ -31,12 +30,11 @@ class  TemporalTrajectoryFlowTest extends FunSuite with BeforeAndAfterEach with 
       .enableHiveSupport()
       .getOrCreate()
     GeoSparkSQLRegistrator.registerAll(sparkSession)
-    sc = sparkSession.sparkContext
     hiveContext = sparkSession.sqlContext
   }
 
   override def afterAll(): Unit = {
-    sc.stop()
+    sparkSession.sparkContext.stop()
   }
 
   /** Alias for a cluster. */
@@ -47,7 +45,6 @@ class  TemporalTrajectoryFlowTest extends FunSuite with BeforeAndAfterEach with 
   def runTest(dropTableFlag: Boolean): Unit = {
     println("---- ALL TEST START ----")
     this.oldcuteTest(dropTableFlag)
-    // this.testAbsoluteContiguityClusters(dropTableFlag)
     this.testAbsoluteContiguityClustersNOResult(dropTableFlag)
     this.testSmootherContiguityClusters(dropTableFlag)
     this.testAbsoluteContiguityClustersNOResult(dropTableFlag)

@@ -418,11 +418,8 @@ object CTM {
     val trans: RDD[(Tid, Itemid)] =
       if (debug) {
         transactionTable = inTable
-        spark.get.sparkContext.parallelize(
-          debugData.flatMap({
-            case (cell: Tid, items: Vector[Itemid]) => items.map(item => (item, Array(cell)))
-          })
-        )        .reduceByKey(_ ++ _, partitions)
+        spark.get.sparkContext.parallelize(debugData.flatMap({ case (cell: Tid, items: Vector[Itemid]) => items.map(item => (item, Array(cell))) }))
+          .reduceByKey(_ ++ _, partitions)
           .flatMap(t => t._2.map(c => (c, t._1)))
           .cache()
       } else {
