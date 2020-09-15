@@ -353,6 +353,33 @@ object TestOnCluster {
     require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected \n${expectedClusters.size} clusters got \n${cuteClusters._2.toSet}")
   }
 
+  /**  Test the recognition of a flock pattern. */
+  def testFlockDetectionFromPaper(dropTableFlag: Boolean): Unit = {
+    val test_name = "FLOCK_DETECTION_PAPER"
+    println(s"----$test_name----")
+    val inputSet: Array[String] = Array( //
+      "01\t0\t1\t1", "01\t0\t2\t1", "01\t0\t3\t2", "01\t0\t1\t3", "01\t0\t1\t4", "01\t0\t2\t5", "01\t0\t3\t6", "01\t0\t1\t7", //
+      "02\t0\t1\t1", "02\t0\t2\t1", "02\t0\t3\t2", "02\t0\t1\t3", "02\t0\t2\t4", "02\t0\t3\t5", "02\t0\t3\t6", "02\t0\t1\t7" //
+    )
+    val tableName = s"tmp_$test_name"
+    dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
+    val cuteClusters = CTM.run(
+      droptable = dropTableFlag,
+      inTable = tableName,
+      minsize = 2,
+      minsup = 4,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      eps_t = 1,
+      returnResult = true
+    )
+    val expectedClusters = Set(
+      (RoaringBitmap.bitmapOf(0, 1), 2, 6)
+    )
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+  }
+
   /**
    * Test recognition of a Group pattern.
    */

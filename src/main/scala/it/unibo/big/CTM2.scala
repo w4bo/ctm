@@ -78,7 +78,11 @@ object CTM2 {
     }
 
     /**
-     * Keep only the cluster having a good size and support.
+     * Keep only the cluster having
+     * (i) a sufficient size
+     * (ii) a sufficient support
+     * (iii) emerging from a non-redundant path
+     * (iv) satisfying the distance/adjacency constraints (i.e., neighborhood constraints)
      *
      * @param cluster the current trajectory set considered.
      * @param x       a set containing the current support of the trajectory set.
@@ -113,13 +117,6 @@ object CTM2 {
             searchConnectedComponent(tile)
           }
         }}))
-//        curSupport.forEach(toJavaConsumer({ case tile: Integer => { // for each tile in the support
-//
-//          if (c < minsup) {
-//            val existNeighbor = RoaringBitmap.intersects(brdNeighborhood.get.value(tile), curSupport)
-//            if (existNeighbor) c += 1 else c = 1 // exists a neighbor satisfying the distance constraints
-//          }
-//        }}))
         flag = flag && c >= minsup
       }
       flag
@@ -135,7 +132,6 @@ object CTM2 {
     var nItemsets: Long = 0
     var c: Long = 0
 
-    // var startTime: Long = System.currentTimeMillis()
     CustomTimer.start()
     var clusters: RDD[CarpenterRowSet] =
       trans
@@ -149,7 +145,6 @@ object CTM2 {
         .localCheckpoint()
     val clusterCount = clusters.count()
     println(s"\n--- Init clusters: $clusterCount")
-    // var totalElapsedTime: Long = System.currentTimeMillis - startTime
     countOk.reset()
     countToExtend.reset()
     // printCluster(clusters)
