@@ -56,7 +56,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   override def beforeAll(): Unit = {
     sparkSession = SparkSession.builder()
       .master("local[1]") // Delete this if run in cluster mode
-      .appName("unit test") // Change this to a proper name
+      .appName("TestPaper") // Change this to a proper name
       .config("spark.broadcast.compress", "false")
       .config("spark.shuffle.compress", "false")
       .config("spark.shuffle.spill.compress", "false")

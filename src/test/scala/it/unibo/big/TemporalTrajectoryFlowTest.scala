@@ -11,15 +11,15 @@ import org.datasyslab.geosparkviz.core.Serde.GeoSparkVizKryoRegistrator
 import org.roaringbitmap.RoaringBitmap
 import org.scalatest._
 
-class  TemporalTrajectoryFlowTest extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll {
+class TemporalTrajectoryFlowTest extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll {
 
   @transient var sparkSession: SparkSession = _
   @transient var hiveContext: SQLContext = _
 
   override def beforeAll(): Unit = {
     sparkSession = SparkSession.builder()
-      .master("local[2]") // Delete this if run in cluster mode
-      .appName("unit test") // Change this to a proper name
+      .master("client") // Delete this if run in cluster mode
+      .appName("TemporalTrajectoryFlowTest") // Change this to a proper name
       .config("spark.broadcast.compress", "false")
       .config("spark.shuffle.compress", "false")
       .config("spark.shuffle.spill.compress", "false")
