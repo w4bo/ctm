@@ -16,29 +16,30 @@ object TestOnCluster {
    */
   def main(args: Array[String]): Unit = {
     val dropTableFlag = true
-    this.oldcuteTest()
-    this.testAbsoluteContiguityClusters(dropTableFlag)
-    this.testAbsoluteContiguityClustersNOResult(dropTableFlag)
-    this.testSmootherContiguityClusters(dropTableFlag)
-    this.testAbsoluteContiguityClustersNOResult(dropTableFlag)
-    this.testExternalNeighbourClusters(dropTableFlag)
-    this.testExternalNeighbourInsideTheIDPathClusters(dropTableFlag)
-    this.testSmootherContiguityTwoThresholdClusters(dropTableFlag)
-    this.testTwoSplitsClusters(dropTableFlag)
-    this.testSwarmDetection(dropTableFlag)
-    this.testFlockDetection(dropTableFlag)
-    this.testGroupDetection(dropTableFlag)
-    this.testWeeklyContiguityData(dropTableFlag)
-    this.testWeeklySmootherContiguityClusters(dropTableFlag)
-    this.testWeeklyFlockClusters(dropTableFlag)
-    this.testWeeklySwarmClusters(dropTableFlag)
+    testFlockDetectionFromPaper(dropTableFlag)
+    testDB()
+    testAbsoluteContiguityClusters(dropTableFlag)
+    testAbsoluteContiguityClustersNOResult(dropTableFlag)
+    testSmootherContiguityClusters(dropTableFlag)
+    testAbsoluteContiguityClustersNOResult(dropTableFlag)
+    testExternalNeighbourClusters(dropTableFlag)
+    testExternalNeighbourInsideTheIDPathClusters(dropTableFlag)
+    testSmootherContiguityTwoThresholdClusters(dropTableFlag)
+    testTwoSplitsClusters(dropTableFlag)
+    testSwarmDetection(dropTableFlag)
+    testFlockDetection(dropTableFlag)
+    testGroupDetection(dropTableFlag)
+    testWeeklyContiguityData(dropTableFlag)
+    testWeeklySmootherContiguityClusters(dropTableFlag)
+    testWeeklyFlockClusters(dropTableFlag)
+    testWeeklySwarmClusters(dropTableFlag)
   }
 
   /** Alias for a cluster. */
   type cuteCluster = (RoaringBitmap, Int, Int)
   val dataLoader = TempTableLoader()
 
-  def oldcuteTest(): Unit = {
+  def testDB(): Unit = {
     var res9 = CTM.run(droptable = true, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
     require(res9._2.length == 2466, s"Test 9.e failed. Expected: ${2466}, got: ${res9._1}")
     res9 = CTM.run(droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
