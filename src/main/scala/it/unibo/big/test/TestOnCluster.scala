@@ -17,6 +17,7 @@ object TestOnCluster {
   def main(args: Array[String]): Unit = {
     val dropTableFlag = true
     testFlockDetectionFromPaper(dropTableFlag)
+    testFlockDetectionFromPaperFail(dropTableFlag)
     testDB()
     testAbsoluteContiguityClusters(dropTableFlag)
     testAbsoluteContiguityClustersNOResult(dropTableFlag)
@@ -356,11 +357,11 @@ object TestOnCluster {
 
   /**  Test the recognition of a flock pattern. */
   def testFlockDetectionFromPaper(dropTableFlag: Boolean): Unit = {
-    val test_name = "FLOCK_DETECTION_PAPER"
+    val test_name = "testFlockDetectionFromPaper"
     println(s"----$test_name----")
     val inputSet: Array[String] = Array( //
-      "01\t0\t1\t1", "01\t0\t2\t1", "01\t0\t3\t2", "01\t0\t1\t3", "01\t0\t1\t4", "01\t0\t2\t5", "01\t0\t3\t6", "01\t0\t1\t7", //
-      "02\t0\t1\t1", "02\t0\t2\t1", "02\t0\t3\t2", "02\t0\t1\t3", "02\t0\t2\t4", "02\t0\t3\t5", "02\t0\t3\t6", "02\t0\t1\t7" //
+      "01\t1\t0\t1", "01\t2\t0\t1", "01\t3\t0\t2", "01\t1\t0\t3", "01\t1\t0\t4", "01\t2\t0\t5", "01\t3\t0\t6", "01\t1\t0\t7", //
+      "02\t1\t0\t1", "02\t2\t0\t1", "02\t3\t0\t2", "02\t1\t0\t3", "02\t2\t0\t4", "02\t3\t0\t5", "02\t3\t0\t6", "02\t1\t0\t7" //
     )
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
@@ -381,6 +382,30 @@ object TestOnCluster {
     require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
+  /**  Test the recognition of a flock pattern. */
+  def testFlockDetectionFromPaperFail(dropTableFlag: Boolean): Unit = {
+    val test_name = "testFlockDetectionFromPaperFail"
+    println(s"----$test_name----")
+    val inputSet: Array[String] = Array( //
+      "01\t1\t0\t1", "01\t3\t0\t2", "01\t1\t0\t3", "01\t1\t0\t4", "01\t2\t0\t5", "01\t3\t0\t6", "01\t1\t0\t7", //
+      "02\t1\t0\t1", "02\t3\t0\t2", "02\t1\t0\t3", "02\t2\t0\t4", "02\t3\t0\t5", "02\t3\t0\t6", "02\t1\t0\t7" //
+    )
+    val tableName = s"tmp_$test_name"
+    dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
+    val cuteClusters = CTM.run(
+      droptable = dropTableFlag,
+      inTable = tableName,
+      minsize = 2,
+      minsup = 4,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      eps_t = 1,
+      returnResult = true
+    )
+    val expectedClusters = Set()
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+  }
   /**
    * Test recognition of a Group pattern.
    */
