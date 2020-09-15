@@ -131,7 +131,7 @@ object TemporalCellBuilder {
          |       t.$LATITUDE_FIELD_NAME as l1, t.$LONGITUDE_FIELD_NAME as l2, n.$LATITUDE_FIELD_NAME as l3, n.$LONGITUDE_FIELD_NAME as l4,
          |       t.$TIME_BUCKET_COLUMN_NAME as t1, n.$TIME_BUCKET_COLUMN_NAME as t2
          |from $cellTableName t, $cellTableName n
-         |where t.tid < n.tid
+         |where t.tid != n.tid
         """.stripMargin
     val computeTimeDistanceFunction: (Int, Int) => Int = temporalScale match {
       case DailyScale => (t1, t2) => WeeklyHourTimeStamp.computeDailyDistance(t1, t2)
@@ -156,7 +156,6 @@ object TemporalCellBuilder {
   /**
    * Create and broadcast the neighbourhood of each cell.
    * @param spark              the spark session for the querying operations.
-   * @param sparkContext       the spark context for the broadcast operations.
    * @param epss               an optional containing the spatial threshold, if specified.
    * @param epst               an optional containing the temporal threshold, if specified.
    * @param neighbourhoodTable the neighbourhood table name.

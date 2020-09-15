@@ -31,7 +31,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
    * @param symmetric a is neighbor of b, but not viceversa
    * @return
    */
-  def neigh(rows: Int, cols: Int, distCol: Int, distRow: Int, symmetric: Boolean = false): Map[Int, RoaringBitmap] = {
+  def neigh(rows: Int, cols: Int, distCol: Int, distRow: Int, symmetric: Boolean = true): Map[Int, RoaringBitmap] = {
     val ret: mutable.Map[Int, RoaringBitmap] = mutable.Map()
     (0 until rows).foreach(s => {
       (1 to cols).foreach(t => {
@@ -74,13 +74,13 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   test("test neighborhood generation") {
-    assert(neigh(3, 7, 1, 1)(1).getCardinality == 3, neigh(3, 7, 1, 1)(1).toString)
-    assert(neigh(3, 7, 1, Int.MaxValue)(2).getCardinality == 7, "Wrong number of neighbors")
-    assert(neigh(3, 7, Int.MaxValue, Int.MaxValue).size == 21, "Wrong number of transactions")
-    assert(neigh(3, 7, Int.MaxValue, Int.MaxValue)(1).getCardinality == 20, "Wrong number of neighbors")
-    assert(neigh(3, 7, Int.MaxValue, Int.MaxValue)(15).getCardinality == 6, "Wrong number of neighbors")
-    assert(neigh(3, 7, 1, Int.MaxValue)(1).getCardinality == 5, neigh(3, 7, 1, Int.MaxValue)(1).toString)
-    assert(neigh(3, 7, 2, Int.MaxValue)(2).getCardinality == 10, neigh(3, 7, 2, Int.MaxValue)(2).toString)
+    assert(neigh(3, 7, 1, 1, false)(1).getCardinality == 3, neigh(3, 7, 1, 1)(1).toString)
+    assert(neigh(3, 7, 1, Int.MaxValue, false)(2).getCardinality == 7, "Wrong number of neighbors")
+    assert(neigh(3, 7, Int.MaxValue, Int.MaxValue, false).size == 21, "Wrong number of transactions")
+    assert(neigh(3, 7, Int.MaxValue, Int.MaxValue, false)(1).getCardinality == 20, "Wrong number of neighbors")
+    assert(neigh(3, 7, Int.MaxValue, Int.MaxValue, false)(15).getCardinality == 6, "Wrong number of neighbors")
+    assert(neigh(3, 7, 1, Int.MaxValue, false)(1).getCardinality == 5, neigh(3, 7, 1, Int.MaxValue, false)(1).toString)
+    assert(neigh(3, 7, 2, Int.MaxValue, false)(2).getCardinality == 10, neigh(3, 7, 2, Int.MaxValue, false)(2).toString)
     assert(neigh(3, 7, 1, Int.MaxValue, true)(10).getCardinality == 8, neigh(3, 7, 1, Int.MaxValue, true)(9).toString)
   }
 
@@ -290,33 +290,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
     assert(res._1 == 1, "Swarm failed")
     assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), res._2.toSet.toString)
   }
-
-////  test("Platoon") {
-////    val data: Seq[(Tid, Vector[Itemid])] = Vector(
-////      (1, Vector(1, 2)),
-////      (3, Vector(1, 2)),
-////      (4, Vector(1)),
-////      (7, Vector(1, 2)),
-////      (8, Vector(1, 2)),
-////      (11, Vector(2)),
-////      (12, Vector(1)),
-////      (16, Vector(1, 2)),
-////      (19, Vector(3)),
-////      (20, Vector(1, 2))
-////    )
-////    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
-////      minsize = 2,
-////      minsup = 2,
-////      bin_s = 1,
-////      timeScale = AbsoluteScale,
-////      bin_t = 1,
-////      returnResult = true,
-////      debugData = data,
-////      neighs = neigh(3, 7, 1, Int.MaxValue)
-////    )
-////    assert(res._1 == 1, res)
-////    assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 5))), res._2.toSet.toString)
-////  }
 
   test("Flock") {
     val data: Seq[(Tid, Vector[Itemid])] = Vector(
