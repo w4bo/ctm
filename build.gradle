@@ -36,6 +36,7 @@ idea {
 }
 
 task runTestOnCluster(type: Exec) {
+    dependsOn(tasks.named("shadowJar"))
     workingDir "${buildDir}"
     commandLine 'spark-submit --class it.unibo.big.TestOnCluster build/libs/CTM-all.jar'
 }
