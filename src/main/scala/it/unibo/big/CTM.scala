@@ -396,7 +396,7 @@ object CTM {
     this.returnResult = returnResult
     this.euclidean = euclidean
 
-    val sparkSession = if (spark.isDefined) spark.get else startSparkSession(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn")
+    val sparkSession = spark.getOrElse(startSparkSession(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn"))
     val temporaryTableName: String = // Define the generic name of the support table, based on the relevant parameters for cell creation.
       s"-tbl_${inTable.replace("trajectory.", "")}" +
         s"-lmt_${if (limit == Int.MaxValue) "Infinity" else limit}" +

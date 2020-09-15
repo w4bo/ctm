@@ -17,7 +17,7 @@ object TestOnCluster {
   def main(args: Array[String]): Unit = {
     println("---- ALL TEST START ----")
     val dropTableFlag = true
-    this.oldcuteTest(dropTableFlag)
+    this.oldcuteTest()
     this.testAbsoluteContiguityClusters(dropTableFlag)
     this.testAbsoluteContiguityClustersNOResult(dropTableFlag)
     this.testSmootherContiguityClusters(dropTableFlag)
@@ -40,8 +40,8 @@ object TestOnCluster {
   type cuteCluster = (RoaringBitmap, Int, Int)
   val dataLoader = TempTableLoader()
 
-  def oldcuteTest(dropTableFlag: Boolean): Unit = {
-    var res9 = CTM.run(droptable = dropTableFlag, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
+  def oldcuteTest(): Unit = {
+    var res9 = CTM.run(droptable = true, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
     require(res9._2.length == 2466, s"Test 9.e failed. Expected: ${2466}, got: ${res9._1}")
     res9 = CTM.run(droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
     require(res9._1 == 2466, s"Test 9.e failed. Expected: ${2466}, got: ${res9._1}")
