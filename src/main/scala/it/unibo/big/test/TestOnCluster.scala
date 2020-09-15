@@ -1,15 +1,9 @@
-package it.unibo.big
+package it.unibo.big.test
 
 import it.unibo.big.TemporalScale.{AbsoluteScale, DailyScale, NoScale, WeeklyScale}
-import it.unibo.big.Utils.{Itemid, Tid}
-import it.unibo.big.test.TempTableLoader
-import org.apache.spark.SparkContext
-import org.apache.spark.serializer.KryoSerializer
-import org.apache.spark.sql.{SQLContext, SparkSession}
-import org.datasyslab.geosparksql.utils.GeoSparkSQLRegistrator
-import org.datasyslab.geosparkviz.core.Serde.GeoSparkVizKryoRegistrator
+import it.unibo.big.{CTM, Utils}
+import org.apache.spark.sql.SparkSession
 import org.roaringbitmap.RoaringBitmap
-import org.scalatest._
 
 object TestOnCluster {
 
@@ -42,10 +36,10 @@ object TestOnCluster {
     println("---- ALL TEST FINISH ----")
   }
 
-  def oldcuteTest(dropTableFlag:Boolean): Unit = {
-    var res9 = CTM.run(droptable=dropTableFlag, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
+  def oldcuteTest(dropTableFlag: Boolean): Unit = {
+    var res9 = CTM.run(droptable = dropTableFlag, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
     require(res9._2.length == 2466, s"Test 9.e failed. Expected: ${2466}, got: ${res9._1}")
-    res9 = CTM.run(droptable=false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
+    res9 = CTM.run(droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
     require(res9._1 == 2466, s"Test 9.e failed. Expected: ${2466}, got: ${res9._1}")
     require(res9._2.length < 2466, s"Test 9.e failed. Expected: < ${2466}, got: ${res9._1}") // this is because we store the itemsets in while generating them
   }
@@ -53,7 +47,7 @@ object TestOnCluster {
   /**
    * Test a pattern where the trajectories are in three near cells.
    */
-  def testAbsoluteContiguityClusters(dropTableFlag:Boolean): Unit = {
+  def testAbsoluteContiguityClusters(dropTableFlag: Boolean): Unit = {
     val absoluteContiguityInputSet: Array[String] =
       Array(
         "01\t0\t0\t1",
@@ -92,7 +86,7 @@ object TestOnCluster {
   /**
    * Test a pattern where the trajectories are in three contigued cells.
    */
-  def testAbsoluteContiguityClustersNOResult(dropTableFlag:Boolean): Unit = {
+  def testAbsoluteContiguityClustersNOResult(dropTableFlag: Boolean): Unit = {
     println("---- absolute contiguity no result test 1 temporal bucket size")
 
     val absoluteContiguityInputSet: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t3", "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4")
@@ -101,7 +95,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
 
     val absoluteContiguityClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = absoluteContiguityTableView,
       minsize = 2,
       minsup = 3,
@@ -119,7 +113,7 @@ object TestOnCluster {
   /**
    * Check that contiguity works also with relaxed time constrains
    */
-  def testSmootherContiguityClusters(dropTableFlag:Boolean): Unit = {
+  def testSmootherContiguityClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "SMOOTHER_CONTIGUITY_CHECK"
     println(s"----$test_name----")
 
@@ -130,7 +124,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -150,15 +144,15 @@ object TestOnCluster {
     cuteClusters._2.foreach(println)
     require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
       s"${expectedClusters.size}; found ${cuteClusters._1}")
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
     println(s"----$test_name: PASSED------")
   }
 
   /**
    * Check that contiguity works also with relaxed time constrains.
    */
-  def testSmootherContiguityTwoThresholdClusters(dropTableFlag:Boolean): Unit = {
+  def testSmootherContiguityTwoThresholdClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "SMOOTHER_CONTIGUITY_TWO_CHECK"
     println(s"----$test_name----")
 
@@ -169,7 +163,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -196,8 +190,8 @@ object TestOnCluster {
 
     cuteClusters._2.foreach(println)
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
@@ -205,7 +199,7 @@ object TestOnCluster {
   /**
    * Check that contiguity works also with relaxed time costrains, no result should be found here.
    */
-  def testSmootherContiguityClustersNOResult(dropTableFlag:Boolean): Unit = {
+  def testSmootherContiguityClustersNOResult(dropTableFlag: Boolean): Unit = {
     val test_name = "SMOOTHER_CONTIGUITY_CHECK_NO_RESULT"
     println(s"----$test_name----")
 
@@ -216,7 +210,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -239,7 +233,7 @@ object TestOnCluster {
    * This test include a cell with an superior ID that contains the pattern required but is excluded for some
    * spatio-temporal reason.
    */
-  def testExternalNeighbourClusters(dropTableFlag:Boolean): Unit = {
+  def testExternalNeighbourClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "EXTERNAL_NEIGHBOUR_CHECK"
     println(s"----$test_name----")
 
@@ -250,7 +244,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -277,8 +271,8 @@ object TestOnCluster {
     cuteClusters._2.foreach(println)
 
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
@@ -287,7 +281,7 @@ object TestOnCluster {
    * This test include a cell with an superior ID that contains the pattern required but is excluded for some
    * spatio-temporal reason.
    */
-  def testExternalNeighbourInsideTheIDPathClusters(dropTableFlag:Boolean): Unit = {
+  def testExternalNeighbourInsideTheIDPathClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "EXTERNAL_PATH_NEIGHBOUR_CHECK"
     println(s"----$test_name----")
 
@@ -298,7 +292,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -324,8 +318,8 @@ object TestOnCluster {
 
     cuteClusters._2.foreach(println)
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
@@ -334,7 +328,7 @@ object TestOnCluster {
    * This test include a cell with an superior ID that contains the pattern required but is excluded for some
    * spatio-temporal reason.
    */
-  def testTwoSplitsClusters(dropTableFlag:Boolean): Unit = {
+  def testTwoSplitsClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "TWO_SPLITS_CHECK"
     println(s"----$test_name----")
 
@@ -347,7 +341,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -376,8 +370,8 @@ object TestOnCluster {
     cuteClusters._2.foreach(println)
 
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
@@ -385,7 +379,7 @@ object TestOnCluster {
   /**
    * Test the recognition of a Swarm pattern.
    */
-  def testSwarmDetection(dropTableFlag:Boolean): Unit = {
+  def testSwarmDetection(dropTableFlag: Boolean): Unit = {
     val test_name = "SWARM_DETECTION"
     println(s"----$test_name----")
 
@@ -402,7 +396,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -432,8 +426,8 @@ object TestOnCluster {
 
     cuteClusters._2.foreach(println)
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
@@ -441,7 +435,7 @@ object TestOnCluster {
   /**
    * Test the recognition of a flock pattern.
    */
-  def testFlockDetection(dropTableFlag:Boolean): Unit = {
+  def testFlockDetection(dropTableFlag: Boolean): Unit = {
     val test_name = "FLOCK_DETECTION"
     println(s"----$test_name----")
 
@@ -458,7 +452,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -485,8 +479,8 @@ object TestOnCluster {
 
     cuteClusters._2.foreach(println)
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
@@ -494,7 +488,7 @@ object TestOnCluster {
   /**
    * Test recognition of a Group pattern.
    */
-  def testGroupDetection(dropTableFlag:Boolean): Unit = {
+  def testGroupDetection(dropTableFlag: Boolean): Unit = {
     val test_name = "GROUP_DETECTION"
     println(s"----$test_name----")
 
@@ -511,7 +505,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -542,13 +536,13 @@ object TestOnCluster {
     cuteClusters._2.foreach(println)
 
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
 
-  def testWeeklyContiguityData(dropTableFlag:Boolean):Unit = {
+  def testWeeklyContiguityData(dropTableFlag: Boolean): Unit = {
     val test_name = "WEEKLY_CONTIGUITY_DETECTION"
     println(s"----$test_name----")
 
@@ -566,11 +560,11 @@ object TestOnCluster {
         s"02\t0\t0\t$monday12AMStamp")
 
     val tableName = s"tmp_$test_name"
-    dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession,1)
+    dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
 
     val cuteClusters = CTM.run(
       timeScale = DailyScale,
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -596,8 +590,8 @@ object TestOnCluster {
     cuteClusters._2.foreach(println)
 
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
@@ -605,7 +599,7 @@ object TestOnCluster {
   /**
    * Check that contiguity works also with relaxed time constrains
    */
-  def testWeeklySmootherContiguityClusters(dropTableFlag:Boolean): Unit = {
+  def testWeeklySmootherContiguityClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "WEEKLY_SMOOTHER_CONTIGUITY_CHECK"
     println(s"----$test_name----")
 
@@ -620,10 +614,10 @@ object TestOnCluster {
       s"02\t0\t0\t$monday13PMStamp", s"02\t0\t0\t$monday14PMStamp")
 
     val tableName = s"tmp_$test_name"
-    dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession,1)
+    dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       timeScale = DailyScale,
       inTable = tableName,
       minsize = 2,
@@ -650,8 +644,8 @@ object TestOnCluster {
     require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
       s"${expectedClusters.size}; found ${cuteClusters._1}")
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
@@ -659,7 +653,7 @@ object TestOnCluster {
   /**
    * Check Flock patterns on Weekly based definition.
    */
-  def testWeeklyFlockClusters(dropTableFlag:Boolean): Unit = {
+  def testWeeklyFlockClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "WEEKLY_FLOCK_CHECK"
     println(s"----$test_name----")
 
@@ -674,10 +668,10 @@ object TestOnCluster {
       s"02\t0\t0\t$monday01AMStamp", s"02\t0\t0\t$monday02AMStamp")
 
     val tableName = s"tmp_$test_name"
-    dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession,1)
+    dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       timeScale = DailyScale,
       inTable = tableName,
       minsize = 2,
@@ -705,8 +699,8 @@ object TestOnCluster {
     require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
       s"${expectedClusters.size}; found ${cuteClusters._1}")
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-//      s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
+    //      s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
@@ -714,7 +708,7 @@ object TestOnCluster {
   /**
    * Check Flock patterns on Weekly based definition.
    */
-  def testWeeklySwarmClusters(dropTableFlag:Boolean): Unit = {
+  def testWeeklySwarmClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "WEEKLY_SWARM_CHECK"
     println(s"----$test_name----")
 
@@ -732,7 +726,7 @@ object TestOnCluster {
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
 
     val cuteClusters = CTM.run(
-      droptable=dropTableFlag,
+      droptable = dropTableFlag,
       timeScale = WeeklyScale,
       inTable = tableName,
       minsize = 2,
@@ -753,13 +747,14 @@ object TestOnCluster {
 
     require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " + s"${expectedClusters.size}; found ${cuteClusters._1}")
 
-//    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" + s"Clusters does not match with the expected results")
+    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" + s"Clusters does not match with the expected results")
 
     println(s"----$test_name: PASSED------")
   }
 
   /**
    * Function to check if two clusters has the same items and support.
+   *
    * @return true if two clusters has the same items and support, false otherwise.
    */
   private def iscuteClustersEquals: ((RoaringBitmap, Int), (RoaringBitmap, Int)) => Boolean = (c1, c2) =>
@@ -767,10 +762,11 @@ object TestOnCluster {
 
   /**
    * Check if two arrays of clusters containsexactly the same elements.
-   * @param resultClusterArray the array of clusters obtained by the cute computation.
+   *
+   * @param resultClusterArray   the array of clusters obtained by the cute computation.
    * @param expectedClusterArray the excpected array of clusters.
    * @return true if both arrays contains the same elements, false otherwise.
    */
-  private def clusterChecker(resultClusterArray: Array[cuteCluster], expectedClusterArray:List[(RoaringBitmap, Int)]):Boolean =
+  private def clusterChecker(resultClusterArray: Array[cuteCluster], expectedClusterArray: List[(RoaringBitmap, Int)]): Boolean =
     expectedClusterArray.forall(ep => resultClusterArray.map(c => (c._1, c._3)).exists(iscuteClustersEquals(_, ep)))
 }
