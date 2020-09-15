@@ -159,7 +159,6 @@ object TestOnCluster {
   def testSmootherContiguityTwoThresholdClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "SMOOTHER_CONTIGUITY_TWO_CHECK"
     println(s"----$test_name----")
-
     val inputSet: Array[String] =
       Array("01\t0\t0\t1",
             "01\t0\t0\t2",
@@ -172,7 +171,6 @@ object TestOnCluster {
 
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-
     val cuteClusters = CTM.run(
       droptable = dropTableFlag,
       inTable = tableName,
@@ -184,27 +182,15 @@ object TestOnCluster {
       eps_t = 2,
       returnResult = true
     )
-
-    val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 2),
-      (RoaringBitmap.bitmapOf(1, 2), 2)
-    )
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
+    val expectedClusters = List((RoaringBitmap.bitmapOf(1, 2), 2))
+    //(RoaringBitmap.bitmapOf(1, 2), 2), (RoaringBitmap.bitmapOf(1, 2), 2)
     println("-----Expected results----")
-
     expectedClusters.foreach(println)
-
     println("-----Actual results----")
-
     cuteClusters._2.foreach(println)
-
+    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " + s"${expectedClusters.size}; found ${cuteClusters._1}")
     //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
     //      s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
   }
 
   /**
