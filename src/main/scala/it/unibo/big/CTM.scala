@@ -396,6 +396,7 @@ object CTM {
     this.returnResult = returnResult
     this.euclidean = euclidean
 
+    val sparkSession = if (spark.isDefined) spark.get else startSparkSession(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn")
     val temporaryTableName: String = // Define the generic name of the support table, based on the relevant parameters for cell creation.
       s"-tbl_${inTable.replace("trajectory.", "")}" +
         s"-lmt_${if (limit == Int.MaxValue) "Infinity" else limit}" +
@@ -418,7 +419,7 @@ object CTM {
     val trans: RDD[(Tid, Itemid)] =
       if (debug) {
         transactionTable = inTable
-        spark.get.sparkContext.parallelize(debugData.flatMap({ case (cell: Tid, items: Vector[Itemid]) => items.map(item => (item, Array(cell))) }))
+        sparkSession.sparkContext.parallelize(debugData.flatMap({ case (cell: Tid, items: Vector[Itemid]) => items.map(item => (item, Array(cell))) }))
           .reduceByKey(_ ++ _, partitions)
           .flatMap(t => t._2.map(c => (c, t._1)))
           .cache()
@@ -426,11 +427,10 @@ object CTM {
         /* ------------------------------------------------------------------------
          * Spark Environment Setup
          * ------------------------------------------------------------------------ */
-          val spark: SparkSession = startSparkSession(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn")
-          spark.sparkContext.setLogLevel("ERROR")
-          Logger.getLogger("org").setLevel(Level.ERROR)
-          Logger.getLogger("akka").setLevel(Level.ERROR)
-          LogManager.getRootLogger.setLevel(Level.ERROR)
+        sparkSession.sparkContext.setLogLevel("ERROR")
+        Logger.getLogger("org").setLevel(Level.ERROR)
+        Logger.getLogger("akka").setLevel(Level.ERROR)
+        LogManager.getRootLogger.setLevel(Level.ERROR)
         /* *************************************************************************************************************
          * CONFIGURING TABLE NAMES
          * ************************************************************************************************************/
@@ -444,41 +444,41 @@ object CTM {
         println(s"\n--- Writing to \n\t$outTable\n\t$outTable2\n")
         if (droptable) {
           println("Dropping tables.")
-          spark.sql(s"drop table if exists $DB_NAME.$transactionTable")
-          spark.sql(s"drop table if exists $DB_NAME.$cellToIDTable")
-          spark.sql(s"drop table if exists $DB_NAME.$neighborhoodTable")
+          sparkSession.sql(s"drop table if exists $DB_NAME.$transactionTable")
+          sparkSession.sql(s"drop table if exists $DB_NAME.$cellToIDTable")
+          sparkSession.sql(s"drop table if exists $DB_NAME.$neighborhoodTable")
         }
-        spark.sql(s"use $DB_NAME") // set the output trajectory database
+        sparkSession.sql(s"use $DB_NAME") // set the output trajectory database
         // the transaction table is only generated once, skip the generation if already generated
-        if (!spark.catalog.tableExists(DB_NAME, transactionTable)) {
+        if (!sparkSession.catalog.tableExists(DB_NAME, transactionTable)) {
           // Create time bin from timestamp in a temporal table `inputDFtable`
           val inputDFtable = inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length) + "_temp"
           println(s"--- Getting data from $inTable...")
-          getData(spark, inTable, inputDFtable, timeScale, bin_t, unit_t, euclidean, bin_s)
+          getData(sparkSession, inTable, inputDFtable, timeScale, bin_t, unit_t, euclidean, bin_s)
           if (debug || returnResult) {
-            spark.sql(s"select * from $inputDFtable limit $linesToPrint").show()
+            sparkSession.sql(s"select * from $inputDFtable limit $linesToPrint").show()
           }
           // create trajectory abstractions from the `inputDFtable`, and store it to the `transactionTable` table
           println(s"--- Generating $transactionTable...")
-          mapToReferenceSystem(spark, inputDFtable, transactionTable, minsize, minsup, limit)
-          spark.sql(s"select * from $transactionTable limit $linesToPrint").show()
+          mapToReferenceSystem(sparkSession, inputDFtable, transactionTable, minsize, minsup, limit)
+          sparkSession.sql(s"select * from $transactionTable limit $linesToPrint").show()
           // create the quanta of the reference system from the `inputDFtable` temporal table, and store it to the `cellToIDTable`
-          getQuanta(spark, transactionTable, cellToIDTable)
-          spark.sql(s"select * from $cellToIDTable limit $linesToPrint").show()
+          getQuanta(sparkSession, transactionTable, cellToIDTable)
+          sparkSession.sql(s"select * from $cellToIDTable limit $linesToPrint").show()
           // create the table with all neighbors for each cell
           if (!eps_s.isInfinite || !eps_t.isInfinite) {
             println(s"--- Generating $neighborhoodTable...")
-            createNeighborhood(spark, cellToIDTable, neighborhoodTable, timeScale, euclidean)
-            spark.sql(s"select * from $neighborhoodTable limit $linesToPrint").show()
+            createNeighborhood(sparkSession, cellToIDTable, neighborhoodTable, timeScale, euclidean)
+            sparkSession.sql(s"select * from $neighborhoodTable limit $linesToPrint").show()
           }
         }
-        require(spark.catalog.tableExists(DB_NAME, transactionTable), s"$transactionTable does not exist")
-        require(spark.catalog.tableExists(DB_NAME, transactionTable), s"$cellToIDTable does not exist")
-        require(spark.catalog.tableExists(DB_NAME, transactionTable), s"$neighborhoodTable does not exist")
+        require(sparkSession.catalog.tableExists(DB_NAME, transactionTable), s"$transactionTable does not exist")
+        require(sparkSession.catalog.tableExists(DB_NAME, transactionTable), s"$cellToIDTable does not exist")
+        require(sparkSession.catalog.tableExists(DB_NAME, transactionTable), s"$neighborhoodTable does not exist")
 
         val sql = s"select tid, itemid from $transactionTable"
         println(s"--- Input: $sql")
-        spark
+        sparkSession
           .sql(sql)
           .rdd
           .map(i => (i.get(1).asInstanceOf[Int], Array(i.get(0).asInstanceOf[Int])))
@@ -499,12 +499,12 @@ object CTM {
         if (!eps_s.isInfinite || !eps_t.isInfinite) {
           val spaceThreshold = if (eps_s.isInfinite) { None } else { Some(eps_s * bin_s * DEFAULT_CELL_SIDE) }
           val timeThreshold = if (eps_t.isInfinite) { None } else { Some(eps_t) }
-          TemporalCellBuilder.broadcastNeighborhood(spark.get, spaceThreshold, timeThreshold, neighborhoodTable)
+          TemporalCellBuilder.broadcastNeighborhood(sparkSession, spaceThreshold, timeThreshold, neighborhoodTable)
         } else {
           Map()
         }
     }
-    val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] = if (neighbors.nonEmpty) { Some(spark.get.sparkContext.broadcast(neighbors)) } else { None }
+    val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] = if (neighbors.nonEmpty) { Some(sparkSession.sparkContext.broadcast(neighbors)) } else { None }
     if (brdNeighborhood.isDefined) {
       val brdTrajInCell_bytes = brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum
       println(brdTrajInCell_bytes + "B")
@@ -514,7 +514,7 @@ object CTM {
     }
 
     /** run the algorithm. */
-    CTM2.CTM(spark.get, trans, brdNeighborhood, minsup, minsize)
+    CTM2.CTM(sparkSession, trans, brdNeighborhood, minsup, minsize)
   }
 
   /**
