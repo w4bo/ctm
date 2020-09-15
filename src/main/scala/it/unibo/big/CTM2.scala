@@ -87,15 +87,17 @@ object CTM2 {
      */
     def filterCluster(cluster: RoaringBitmap, x: RoaringBitmap, r: RoaringBitmap): Boolean = {
       var flag: Boolean = cluster.getCardinality >= minsize && (x.getCardinality + r.getCardinality) >= minsup
-      val curSupport = support(cluster) // get the support
+      val trueSupport = support(cluster) // get the support
       if (flag) { // if the itemset has enough support and enough elements
         /* check if it is in the shortest path (i.e., contains the first location, and (sup \setminus r \setminus x) is empty */
-        flag = flag && x.contains(curSupport.getIntIterator.next()) && RoaringBitmap.andNot(RoaringBitmap.andNot(curSupport, r), x).isEmpty
+        flag = flag && x.contains(trueSupport.getIntIterator.next()) &&
+                 // RoaringBitmap.andNot(RoaringBitmap.andNot(trueSupport, r), x).isEmpty
+                 RoaringBitmap.andNot(trueSupport, r).getCardinality == x.getCardinality
       }
       if (flag && brdNeighborhood.isDefined) {
         var c = 0 // consecutive adjacent tiles
         val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
-        curSupport.forEach(toJavaConsumer({ case tile: Integer => { // for each tile in the support
+        trueSupport.forEach(toJavaConsumer({ case tile: Integer => { // for each tile in the support
           if (c < minsup && !marked.contains(tile)) { // if a connected component of at least minsup has not been found && the tile has been not visited yet
             c = 0 // reset the number of consecutive adjacent tiles
             def searchConnectedComponent(i: Int): Unit = { // recursive function
@@ -105,7 +107,7 @@ object CTM2 {
               val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
               // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
               if (neighborhood.isDefined) {
-                neighborhood.get.forEach(toJavaConsumer(i => if (c < minsup && curSupport.contains(i) && !marked.contains(i)) { searchConnectedComponent(i) }))
+                neighborhood.get.forEach(toJavaConsumer(i => if (c < minsup && trueSupport.contains(i) && !marked.contains(i)) { searchConnectedComponent(i) }))
               }
             }
             searchConnectedComponent(tile)
@@ -183,28 +185,26 @@ object CTM2 {
               val XplusY: RoaringBitmap = RoaringBitmap.or(x, Y) // X U Y = x + Y
               var R: RoaringBitmap = RoaringBitmap.and(RoaringBitmap.andNot(r, Y), allCellsInTrajectories(lCluster)) // rows to consider
               val t = (lCluster, lClusterSupport.getCardinality < minsup, XplusY, R)
-              var res: Array[CarpenterRowSet] = if (t._2) Array[CarpenterRowSet]() else Array(t)
+              var L: Array[CarpenterRowSet] = if (t._2) Array[CarpenterRowSet]() else Array(t)
               /* Cluster t should be expanded */
               R.toArray.foreach({ case key: Tid => {
                 val rTransaction = brdTrajInCell.value(key)
                 val c = RoaringBitmap.and(lCluster, rTransaction) // C stores the common trajectories between the tuple Key and the lcluster
                 // c.runOptimize() // RUN LENGTH ENCODING TO SAVE MEMORY
                 R = RoaringBitmap.remove(R, key, key + 1) // Remove the key element from previous defined R
-                val incrementedBitMap = RoaringBitmap.add(XplusY, key, key + 1)
+                val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1)
                 /* c becomes new lcluster, Add the element key to X */
-                res +:= (c, true, incrementedBitMap, R)
+                L +:= (c, true, XplusYplusKey, R)
               }})
-              res = res
-                .filter(!_._3.isEmpty)
-                .filter({ case (c: RoaringBitmap, _: Boolean, x: RoaringBitmap, r: RoaringBitmap) => filterCluster(c, x, r) })
+              L = L.filter({ case (c: RoaringBitmap, _: Boolean, x: RoaringBitmap, r: RoaringBitmap) => !x.isEmpty && filterCluster(c, x, r) })
               // the current element has already been counted, if it has to be saved don't count it twice
               // do not also count the elements that will be checked in the next phase (i.e., for which filter returns true)
-              res.foreach(t => if (t._2) {
+              L.foreach(t => if (t._2) {
                 countToExtend.add(1)
               } else {
                 if (t._3.getCardinality >= minsup) countOk.add(1)
               })
-              res
+              L
             } else {
               Array((lCluster, extend, x, r))
             }
