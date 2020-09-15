@@ -4,11 +4,8 @@ import it.unibo.big.TemporalScale.{AbsoluteScale, NoScale}
 import it.unibo.big.Utils.{Itemid, Tid}
 import org.apache.log4j.{Level, LogManager, Logger}
 import org.apache.spark.SparkContext
-import org.apache.spark.rdd.RDD
-import org.apache.spark.serializer.KryoSerializer
-import org.apache.spark.sql.{Row, SQLContext, SparkSession}
+import org.apache.spark.sql.SparkSession
 import org.datasyslab.geosparksql.utils.GeoSparkSQLRegistrator
-import org.datasyslab.geosparkviz.core.Serde.GeoSparkVizKryoRegistrator
 import org.roaringbitmap.RoaringBitmap
 import org.scalatest._
 
@@ -19,36 +16,47 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   @transient var sparkSession: SparkSession = _
   @transient var sc: SparkContext = _
 
-  /*  Cell locations
+  /*  Cell indexes withing the tessellation
    *  1 -  2 -  3 -  4 -  5 -  6 -  7
    *  8 -  9 - 10 - 11 - 12 - 13 - 14
    * 15 - 16 - 17 - 18 - 19 - 20 - 21
    */
 
-  def neigh(n_s: Int, n_t: Int, max_t: Int, max_s: Int): Map[Int, RoaringBitmap] = {
+  /**
+   * Create a Tessellation
+   *
+   * @param rows    number or rows
+   * @param cols    number of columns
+   * @param distCol max distance between columns
+   * @param distRow max distance between columns
+   * @param symmetric a is neighbor of b, but not viceversa
+   * @return
+   */
+  def neigh(rows: Int, cols: Int, distCol: Int, distRow: Int, symmetric: Boolean = false): Map[Int, RoaringBitmap] = {
     val ret: mutable.Map[Int, RoaringBitmap] = mutable.Map()
-    (0 until n_s).foreach(s => {
-      (1 to n_t).foreach(t => {
+    (0 until rows).foreach(s => {
+      (1 to cols).foreach(t => {
         var curMap = RoaringBitmap.bitmapOf()
-        (0 until n_s).foreach(remainingSpace => {
-          (1 to n_t).foreach(remainingTime => {
+        (0 until rows).foreach(remainingSpace => {
+          (1 to cols).foreach(remainingTime => {
             val ds = Math.abs(s - remainingSpace)
             val dt = Math.abs(t - remainingTime)
-            val curcell = s * n_t + t
-            val neigh = remainingSpace * n_t + remainingTime
-            if (neigh > curcell && ds <= max_s && dt <= max_t) {
-              curMap = RoaringBitmap.or(curMap, RoaringBitmap.bitmapOf(remainingSpace * n_t + remainingTime))
+            val curCell = s * cols + t
+            val neighCell = remainingSpace * cols + remainingTime
+            if ((!symmetric && neighCell > curCell || symmetric && neighCell != curCell) && ds <= distRow && dt <= distCol) {
+              curMap = RoaringBitmap.or(curMap, RoaringBitmap.bitmapOf(remainingSpace * cols + remainingTime))
             }
           })
         })
-        ret.put(s * n_t + t, curMap)
+        ret.put(s * cols + t, curMap)
       })
     })
     ret.toMap
   }
+
   override def beforeAll(): Unit = {
     sparkSession = SparkSession.builder()
-      .master("local[2]") // Delete this if run in cluster mode
+      .master("local[1]") // Delete this if run in cluster mode
       .appName("unit test") // Change this to a proper name
       .config("spark.broadcast.compress", "false")
       .config("spark.shuffle.compress", "false")
@@ -69,12 +77,13 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
 
   test("test neighborhood generation") {
     assert(neigh(3, 7, 1, 1)(1).getCardinality == 3, neigh(3, 7, 1, 1)(1).toString)
-    assert(neigh(3, 7, 1, 10)(2).getCardinality == 7, "Wrong number of neighbors")
-    assert(neigh(3, 7, 10, 10).size == 21, "Wrong number of transactions")
-    assert(neigh(3, 7, 10, 10)(1).getCardinality == 20, "Wrong number of neighbors")
-    assert(neigh(3, 7, 10, 10)(15).getCardinality == 6, "Wrong number of neighbors")
-    assert(neigh(3, 7, 1, 10)(1).getCardinality == 5, neigh(3, 7, 1, 1)(1).toString)
-    assert(neigh(3, 7, 2, 10)(2).getCardinality == 10, neigh(3, 7, 1, 1)(2).toString)
+    assert(neigh(3, 7, 1, Int.MaxValue)(2).getCardinality == 7, "Wrong number of neighbors")
+    assert(neigh(3, 7, Int.MaxValue, Int.MaxValue).size == 21, "Wrong number of transactions")
+    assert(neigh(3, 7, Int.MaxValue, Int.MaxValue)(1).getCardinality == 20, "Wrong number of neighbors")
+    assert(neigh(3, 7, Int.MaxValue, Int.MaxValue)(15).getCardinality == 6, "Wrong number of neighbors")
+    assert(neigh(3, 7, 1, Int.MaxValue)(1).getCardinality == 5, neigh(3, 7, 1, Int.MaxValue)(1).toString)
+    assert(neigh(3, 7, 2, Int.MaxValue)(2).getCardinality == 10, neigh(3, 7, 2, Int.MaxValue)(2).toString)
+    assert(neigh(3, 7, 1, Int.MaxValue, true)(10).getCardinality == 8, neigh(3, 7, 1, Int.MaxValue, true)(9).toString)
   }
 
   test("1") {
@@ -134,7 +143,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   test("5") {
-    /* -- Test 12 --------------------------------------------------------------------------------------------------- */
     val data12: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(1, 2, 3)),
       (2, Vector(1, 2, 3)),
@@ -145,7 +153,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   test("6") {
-    /* -- Test 13 --------------------------------------------------------------------------------------------------- */
     val data13: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(1, 2, 3)),
       (2, Vector(2, 3, 4)),
@@ -157,7 +164,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   test("7") {
-    /* -- Test 11 --------------------------------------------------------------------------------------------------- */
     val data11: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(1, 2, 3)),
       (2, Vector(1, 2, 3)),
@@ -168,7 +174,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   test("8") {
-    /* -- Test 10 --------------------------------------------------------------------------------------------------- */
     val data10: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(1, 2, 3)),
       (2, Vector(2, 3)),
@@ -179,7 +184,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   test("9") {
-    /* -- Test 08 --------------------------------------------------------------------------------------------------- */
     val data8: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(1, 3, 4)),
       (2, Vector(2, 3, 5)),
@@ -199,7 +203,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   test("Co-location") {
-
     val data: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(1)),
       (8, Vector(2)),
@@ -223,10 +226,151 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       bin_t = 1,
       returnResult = true,
       debugData = data,
-      neighs = neigh(3, 7, 10, 10)
+      neighs = neigh(3, 7, Int.MaxValue, Int.MaxValue, true)
     )
 
     assert(res._1 == 1, "Test 10 failed")
     assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 2))), res._2.toString)
+  }
+
+  test("Flow") {
+    val data: Seq[(Tid, Vector[Itemid])] = Vector(
+      (1, Vector(1)),
+      (3, Vector(1)),
+      (4, Vector(1)),
+      (5, Vector(1)),
+      (7, Vector(1)),
+      (8, Vector(2)),
+      (9, Vector(1, 2)),
+      (13, Vector(1, 2)),
+      (15, Vector(3)),
+      (16, Vector(3)),
+      (17, Vector(2, 3)),
+      (18, Vector(2, 3)),
+      (19, Vector(2, 3)),
+      (20, Vector(3)),
+      (21, Vector(3))
+    )
+    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+      minsize = 2,
+      minsup = 3,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      returnResult = true,
+      debugData = data,
+      neighs = neigh(3, 7, Int.MaxValue, 1, true)
+    )
+    assert(res._1 == 1, "Flow failed")
+    assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3), 2, 3))), res._2.toSet.toString)
+  }
+
+  test("Swarm") {
+    val data: Seq[(Tid, Vector[Itemid])] = Vector(
+      (5, Vector(1)),
+      (7, Vector(1)),
+      (8, Vector(1, 2)),
+      (9, Vector(1, 2, 3)),
+      (10, Vector(1, 2)),
+      (11, Vector(1, 2)),
+      (12, Vector(2, 3)),
+      (13, Vector(1, 2, 3)),
+      (14, Vector(1, 2)),
+      (15, Vector(3)),
+      (17, Vector(3)),
+      (18, Vector(3)),
+      (21, Vector(3))
+    )
+    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+      minsize = 3,
+      minsup = 2,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      returnResult = true,
+      debugData = data,
+      neighs = neigh(3, 7, Int.MaxValue, Int.MaxValue, true)
+    )
+    assert(res._1 == 1, "Swarm failed")
+    assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), res._2.toSet.toString)
+  }
+
+////  test("Platoon") {
+////    val data: Seq[(Tid, Vector[Itemid])] = Vector(
+////      (1, Vector(1, 2)),
+////      (3, Vector(1, 2)),
+////      (4, Vector(1)),
+////      (7, Vector(1, 2)),
+////      (8, Vector(1, 2)),
+////      (11, Vector(2)),
+////      (12, Vector(1)),
+////      (16, Vector(1, 2)),
+////      (19, Vector(3)),
+////      (20, Vector(1, 2))
+////    )
+////    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+////      minsize = 2,
+////      minsup = 2,
+////      bin_s = 1,
+////      timeScale = AbsoluteScale,
+////      bin_t = 1,
+////      returnResult = true,
+////      debugData = data,
+////      neighs = neigh(3, 7, 1, Int.MaxValue)
+////    )
+////    assert(res._1 == 1, res)
+////    assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 5))), res._2.toSet.toString)
+////  }
+
+  test("Flock") {
+    val data: Seq[(Tid, Vector[Itemid])] = Vector(
+      (1, Vector(1, 2)),
+      (3, Vector(1, 2)),
+      (4, Vector(1)),
+      (7, Vector(1, 2)),
+      (8, Vector(1, 2)),
+      (11, Vector(2)),
+      (12, Vector(1)),
+      (16, Vector(1, 2)),
+      (19, Vector(3)),
+      (20, Vector(1, 2))
+    )
+    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+      minsize = 2,
+      minsup = 3,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      returnResult = true,
+      debugData = data,
+      neighs = neigh(3, 7, 1, Int.MaxValue, true)
+    )
+    assert(res._1 == 1, "Failed, current result is: " + res)
+    assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 6))), res._2.toSet.toString)
+  }
+
+  test("Flock fail") {
+    val data = Vector(
+      (1, Vector(1, 2)),
+      (3, Vector(1, 2)),
+      (4, Vector(1)),
+      (7, Vector(1, 2)),
+      (11, Vector(2)),
+      (12, Vector(1)),
+      (16, Vector(1, 2)),
+      (19, Vector(3)),
+      (20, Vector(1, 2))
+    )
+    val res = CTM.run(spark = Some(sparkSession),
+      minsize = 2,
+      minsup = 4,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      returnResult = true,
+      debugData = data,
+      neighs = neigh(3, 7, 1, Int.MaxValue, true)
+    )
+    assert(res._1 == 0, "Flock failed, result should be empty but is: " + res)
   }
 }

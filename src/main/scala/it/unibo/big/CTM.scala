@@ -514,7 +514,7 @@ object CTM {
         brdNeighborhood.get.value.toList.sortBy(_._1).foreach(tuple => println(s"tid: ${tuple._1}, neighborhood: ${tuple._2}"))
       }
     }
-    CTM(spark.get, trans, brdNeighborhood, minsup, minsize)
+    CTM2.CTM(spark.get, trans, brdNeighborhood, minsup, minsize)
   }
 
   /**
