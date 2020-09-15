@@ -329,14 +329,21 @@ object TestOnCluster {
     val test_name = "TWO_SPLITS_CHECK"
     println(s"----$test_name----")
 
-    val inputSet: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t4", "01\t0\t0\t5",
-      "01\t0\t0\t7", "01\t0\t0\t8",
-      "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4", "02\t0\t0\t5",
-      "02\t0\t0\t7", "02\t0\t0\t8")
-
+    val inputSet: Array[String] = Array(
+      "01\t0\t0\t1",
+      "01\t0\t0\t2",
+      "01\t0\t0\t4",
+      "01\t0\t0\t5",
+      "01\t0\t0\t7",
+      "01\t0\t0\t8",
+      "02\t0\t0\t1",
+      "02\t0\t0\t2",
+      "02\t0\t0\t4",
+      "02\t0\t0\t5",
+      "02\t0\t0\t7",
+      "02\t0\t0\t8")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-
     val cuteClusters = CTM.run(
       droptable = dropTableFlag,
       inTable = tableName,
@@ -348,28 +355,19 @@ object TestOnCluster {
       eps_t = 1,
       returnResult = true
     )
-
-    val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 2),
-      (RoaringBitmap.bitmapOf(1, 2), 2),
-      (RoaringBitmap.bitmapOf(1, 2), 2)
+    val expectedClusters = Set(
+      (RoaringBitmap.bitmapOf(1, 2), 2, 6)
+      // (RoaringBitmap.bitmapOf(1, 2), 2),
+      // (RoaringBitmap.bitmapOf(1, 2), 2),
+      // (RoaringBitmap.bitmapOf(1, 2), 2)
     )
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
     println("-----Expected results----")
-
     expectedClusters.foreach(println)
-
     println("-----Actual results----")
-
     cuteClusters._2.foreach(println)
-
-
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
     //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
     //      s"Clusters does not match with the expected results")
-
     println(s"----$test_name: PASSED------")
   }
 
