@@ -127,23 +127,20 @@ object TestOnCluster {
     require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
-  /**
-   * Check that contiguity works also with relaxed time constrains.
-   */
+  /** Check that contiguity works also with relaxed time constrains. */
   def testSmootherContiguityTwoThresholdClusters(dropTableFlag: Boolean): Unit = {
     val test_name = "SMOOTHER_CONTIGUITY_TWO_CHECK"
     println(s"----$test_name----")
     val inputSet: Array[String] =
-      Array(
-        "01\t0\t0\t1",
-        "01\t0\t0\t2",
-        "01\t0\t0\t5",
-        "01\t0\t0\t7",
-        "02\t0\t0\t1",
-        "02\t0\t0\t2",
-        "02\t0\t0\t5",
-        "02\t0\t0\t7")
-
+      Array( //
+        "01\t0\t0\t1", //
+        "01\t0\t0\t2", //
+        "01\t0\t0\t5", //
+        "01\t0\t0\t7", //
+        "02\t0\t0\t1", //
+        "02\t0\t0\t2", //
+        "02\t0\t0\t5", //
+        "02\t0\t0\t7") //
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
     val cuteClusters = CTM.run(
@@ -236,7 +233,7 @@ object TestOnCluster {
       eps_t = 1,
       returnResult = true
     )
-    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
+    val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
     require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
   }
 
