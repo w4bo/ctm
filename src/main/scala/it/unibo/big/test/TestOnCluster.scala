@@ -519,7 +519,7 @@ object TestOnCluster {
     )
 
     val expectedClusters = List(
-      (RoaringBitmap.bitmapOf('', 1), 2, 3)
+      (RoaringBitmap.bitmapOf(0, 1), 2, 3)
     )
     require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
   }
