@@ -161,13 +161,13 @@ object TestOnCluster {
     println(s"----$test_name----")
     val inputSet: Array[String] =
       Array("01\t0\t0\t1",
-            "01\t0\t0\t2",
-            "01\t0\t0\t5",
-            "01\t0\t0\t7",
-            "02\t0\t0\t1",
-            "02\t0\t0\t2",
-            "02\t0\t0\t5",
-            "02\t0\t0\t7")
+        "01\t0\t0\t2",
+        "01\t0\t0\t5",
+        "01\t0\t0\t7",
+        "02\t0\t0\t1",
+        "02\t0\t0\t2",
+        "02\t0\t0\t5",
+        "02\t0\t0\t7")
 
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
@@ -330,17 +330,17 @@ object TestOnCluster {
     println(s"----$test_name----")
 
     val inputSet: Array[String] = Array(
-      "01\t0\t0\t1",
-      "01\t0\t0\t2",
-      "01\t0\t0\t4",
-      "01\t0\t0\t5",
-      "01\t0\t0\t7",
-      "01\t0\t0\t8",
-      "02\t0\t0\t1",
-      "02\t0\t0\t2",
-      "02\t0\t0\t4",
-      "02\t0\t0\t5",
-      "02\t0\t0\t7",
+      "01\t0\t0\t1", //
+      "01\t0\t0\t2", //
+      "01\t0\t0\t4", //
+      "01\t0\t0\t5", //
+      "01\t0\t0\t7", //
+      "01\t0\t0\t8", //
+      "02\t0\t0\t1", //
+      "02\t0\t0\t2", //
+      "02\t0\t0\t4", //
+      "02\t0\t0\t5", //
+      "02\t0\t0\t7", //
       "02\t0\t0\t8")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
@@ -356,18 +356,12 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set(
-      (RoaringBitmap.bitmapOf(1, 2), 2, 6)
+      (RoaringBitmap.bitmapOf(0, 1), 2, 6)
       // (RoaringBitmap.bitmapOf(1, 2), 2),
       // (RoaringBitmap.bitmapOf(1, 2), 2),
       // (RoaringBitmap.bitmapOf(1, 2), 2)
     )
-    println("-----Expected results----")
-    expectedClusters.foreach(println)
-    println("-----Actual results----")
-    cuteClusters._2.foreach(println)
     require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
     println(s"----$test_name: PASSED------")
   }
 
@@ -379,9 +373,9 @@ object TestOnCluster {
     println(s"----$test_name----")
 
     val inputSet: Array[String] = Array(
-      "01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t3", "01\t0\t0\t4", "01\t0\t0\t5", "01\t0\t0\t6",
-      "02\t0\t0\t1", "02\t0\t0\t2", "02\t10\t10\t3", "02\t0\t0\t4", "02\t0\t0\t5", "02\t5\t5\t6",
-      "03\t10\t10\t1", "03\t10\t10\t2", "03\t10\t10\t3", "03\t0\t0\t4", "03\t5\t5\t5", "03\t5\t5\t6",
+      "01\t00\t00\t1", "01\t00\t00\t2", "01\t00\t00\t3", "01\t00\t00\t4", "01\t00\t00\t5", "01\t00\t00\t6",
+      "02\t00\t00\t1", "02\t00\t00\t2", "02\t10\t10\t3", "02\t00\t00\t4", "02\t00\t00\t5", "02\t05\t05\t6",
+      "03\t10\t10\t1", "03\t10\t10\t2", "03\t10\t10\t3", "03\t00\t00\t4", "03\t05\t05\t5", "03\t05\t05\t6",
       "04\t10\t10\t1", "04\t10\t10\t2", "04\t10\t10\t3", "04\t10\t10\t4", "04\t20\t20\t5", "04\t15\t15\t6",
       "05\t20\t20\t1", "05\t10\t10\t2", "05\t10\t10\t3", "05\t20\t20\t4", "05\t20\t20\t5", "05\t15\t15\t6",
       "06\t20\t20\t1", "06\t15\t15\t2", "06\t10\t10\t3", "06\t20\t20\t4", "06\t20\t20\t5", "06\t20\t20\t6"
@@ -403,28 +397,13 @@ object TestOnCluster {
     )
 
     val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 4),
-      (RoaringBitmap.bitmapOf(2, 3), 3),
-      (RoaringBitmap.bitmapOf(3, 4), 3),
-      (RoaringBitmap.bitmapOf(4, 5), 4),
-      (RoaringBitmap.bitmapOf(5, 6), 4)
+      (RoaringBitmap.bitmapOf(0, 1), 2, 4),
+      (RoaringBitmap.bitmapOf(1, 2), 2, 3),
+      (RoaringBitmap.bitmapOf(2, 3), 2, 3),
+      (RoaringBitmap.bitmapOf(3, 4), 2, 4),
+      (RoaringBitmap.bitmapOf(4, 5), 2, 4)
     )
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
-    println("-----Expected results----")
-
-    expectedClusters.foreach(println)
-
-    println("-----Actual results----")
-
-    cuteClusters._2.foreach(println)
-
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
   }
 
   /**
@@ -459,25 +438,11 @@ object TestOnCluster {
     )
 
     val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(3, 4), 3),
-      (RoaringBitmap.bitmapOf(5, 6), 3)
+      (RoaringBitmap.bitmapOf(2, 3), 2, 3),
+      (RoaringBitmap.bitmapOf(4, 5), 2, 3)
     )
 
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
-    println("-----Expected results----")
-
-    expectedClusters.foreach(println)
-
-    println("-----Actual results----")
-
-    cuteClusters._2.foreach(println)
-
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
   }
 
   /**
@@ -512,29 +477,13 @@ object TestOnCluster {
     )
 
     val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 4),
-      (RoaringBitmap.bitmapOf(2, 3), 3),
-      (RoaringBitmap.bitmapOf(3, 4), 3),
-      (RoaringBitmap.bitmapOf(4, 5), 3),
-      (RoaringBitmap.bitmapOf(5, 6), 4)
+      (RoaringBitmap.bitmapOf(0, 1), 2, 4),
+      (RoaringBitmap.bitmapOf(1, 2), 2, 3),
+      (RoaringBitmap.bitmapOf(2, 3), 2, 3),
+      (RoaringBitmap.bitmapOf(3, 4), 2, 3),
+      (RoaringBitmap.bitmapOf(4, 5), 2, 4)
     )
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
-    println("-----Expected results----")
-
-    expectedClusters.foreach(println)
-
-    println("-----Actual results----")
-
-    cuteClusters._2.foreach(println)
-
-
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
   }
 
   def testWeeklyContiguityData(dropTableFlag: Boolean): Unit = {
@@ -570,25 +519,9 @@ object TestOnCluster {
     )
 
     val expectedClusters = List(
-      (RoaringBitmap.bitmapOf(1, 2), 3)
+      (RoaringBitmap.bitmapOf('', 1), 2, 3)
     )
-
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected " +
-      s"${expectedClusters.size}; found ${cuteClusters._1}")
-
-    println("-----Expected results----")
-
-    expectedClusters.foreach(println)
-
-    println("-----Actual results----")
-
-    cuteClusters._2.foreach(println)
-
-
-    //    require(clusterChecker(cuteClusters._2, expectedClusters), s"$test_name:" +
-    //      s"Clusters does not match with the expected results")
-
-    println(s"----$test_name: PASSED------")
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"expected\n${expectedClusters}; got ${cuteClusters._2.toSet}")
   }
 
   /**
