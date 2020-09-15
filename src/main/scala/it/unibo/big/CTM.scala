@@ -431,25 +431,24 @@ object CTM {
           Logger.getLogger("org").setLevel(Level.ERROR)
           Logger.getLogger("akka").setLevel(Level.ERROR)
           LogManager.getRootLogger.setLevel(Level.ERROR)
-        /* *****************************************************************************************************************
+        /* *************************************************************************************************************
          * CONFIGURING TABLE NAMES
-         * *****************************************************************************************************************/
-
+         * ************************************************************************************************************/
         transactionTable = s"tmp_transactiontable$temporaryTableName".replace("-", "__") // Trajectories mapped to cells
         cellToIDTable = s"tmp_celltoid$temporaryTableName".replace("-", "__") // Cells with ids
         neighborhoodTable = s"tmp_neighborhood$temporaryTableName".replace("-", "__") // Neighborhoods
 
-        /* ***************************************************************************************************************
+        /* *************************************************************************************************************
          * Trajectory mapping: mapping trajectories to trajectory abstractions
          * **************************************************************************************************************/
         println(s"\n--- Writing to \n\t$outTable\n\t$outTable2\n")
         if (droptable) {
           println("Dropping tables.")
-          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$transactionTable")
-          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$cellToIDTable")
-          spark.sql(s"drop table if exists ${if (DB_NAME.nonEmpty) DB_NAME + "." else ""}$neighborhoodTable")
+          spark.sql(s"drop table if exists $DB_NAME.$transactionTable")
+          spark.sql(s"drop table if exists $DB_NAME.$cellToIDTable")
+          spark.sql(s"drop table if exists $DB_NAME.$neighborhoodTable")
         }
-        if (DB_NAME.nonEmpty) spark.sql(s"use $DB_NAME") // set the output trajectory database
+        spark.sql(s"use $DB_NAME") // set the output trajectory database
         // the transaction table is only generated once, skip the generation if already generated
         if (!spark.catalog.tableExists(DB_NAME, transactionTable)) {
           // Create time bin from timestamp in a temporal table `inputDFtable`
@@ -473,6 +472,9 @@ object CTM {
             spark.sql(s"select * from $neighborhoodTable limit $linesToPrint").show()
           }
         }
+        require(spark.catalog.tableExists(DB_NAME, transactionTable), s"$transactionTable does not exist")
+        require(spark.catalog.tableExists(DB_NAME, transactionTable), s"$cellToIDTable does not exist")
+        require(spark.catalog.tableExists(DB_NAME, transactionTable), s"$neighborhoodTable does not exist")
 
         val sql = s"select tid, itemid from $transactionTable"
         println(s"--- Input: $sql")
@@ -488,11 +490,11 @@ object CTM {
     if (debug) {
       neighbors = neighs
     } else {
-      /* *****************************************************************************************************************
+      /* ***************************************************************************************************************
        * BROADCASTING NEIGHBORHOOD
-       * ****************************************************************************************************************/
-      /** Define a neighborhood for each trajectoryID and broadcast it (only if a neighborhood metrics is defined).
-       * Carpenter by default would not include this, thanks to this the algorithm will be able to use bounds on time and space */
+       * Define a neighborhood for each trajectoryID and broadcast it (only if a neighborhood metrics is defined).
+       * Carpenter by default would not include this, thanks to this the algorithm will be able to use bounds on time and space
+       * ************************************************************************************************************ */
       neighbors =
         if (!eps_s.isInfinite || !eps_t.isInfinite) {
           val spaceThreshold = if (eps_s.isInfinite) { None } else { Some(eps_s * bin_s * DEFAULT_CELL_SIDE) }
@@ -510,6 +512,8 @@ object CTM {
         brdNeighborhood.get.value.toList.sortBy(_._1).foreach(tuple => println(s"tid: ${tuple._1}, neighborhood: ${tuple._2}"))
       }
     }
+
+    /** run the algorithm. */
     CTM2.CTM(spark.get, trans, brdNeighborhood, minsup, minsize)
   }
 
@@ -541,8 +545,6 @@ object CTM {
         minsize = conf.minsize(),
         minsup = conf.minsup()
       )
-    } else {
-      // TemporalTrajectoryFlowTest.runTest(conf.droptable())
     }
   }
 }
