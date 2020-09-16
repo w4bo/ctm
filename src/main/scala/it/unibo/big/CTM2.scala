@@ -66,15 +66,31 @@ object CTM2 {
      * @param itemset a set of trajectoryIDs.
      * @return a Bitmap containing all the cells common to all the trajectories specified by the input.
      */
-    def support(itemset: RoaringBitmap): RoaringBitmap = {
-      RoaringBitmap.bitmapOf(brdTrajInCell.value.filter({ case (_, transaction) =>
-        val iterator = itemset.iterator()
-        var isOk = true
-        while (iterator.hasNext && isOk) {
-          isOk = transaction.contains(iterator.next())
+    def support(itemset: RoaringBitmap, prevSupport: Option[RoaringBitmap] = None): RoaringBitmap = {
+      //      RoaringBitmap.bitmapOf(brdTrajInCell.value.filter({ case (_, transaction) =>
+      //        val iterator = itemset.iterator()
+      //        var isOk = true
+      //        while (iterator.hasNext && isOk) {
+      //          isOk = transaction.contains(iterator.next())
+      //        }
+      //        isOk
+      //      }).keys.toSeq: _*)
+      val res = RoaringBitmap.bitmapOf()
+      brdTrajInCell.value.foreach({ case (tid, transaction) =>
+        if (!prevSupport.isDefined || !prevSupport.get.contains(tid)) {
+          val iterator = itemset.iterator()
+          var isOk = true
+          while (isOk && iterator.hasNext) {
+            isOk = transaction.contains(iterator.next())
+          }
+          if (isOk) {
+            res.add(tid)
+          }
+        } else {
+          res.add(tid)
         }
-        isOk
-      }).keys.toSeq: _*)
+      })
+      res
     }
 
     /**
@@ -89,9 +105,9 @@ object CTM2 {
      * @param r       a set containing all possible cellset to be added to x.
      * @return true if the trajectory set is on its maximal path and has good size and support, false otherwise.
      */
-    def filterCluster(cluster: RoaringBitmap, x: RoaringBitmap, r: RoaringBitmap): Boolean = {
+    def filterCluster(cluster: RoaringBitmap, x: RoaringBitmap, r: RoaringBitmap, prevSupport: Option[RoaringBitmap] = None): Boolean = {
       var flag: Boolean = cluster.getCardinality >= minsize && (x.getCardinality + r.getCardinality) >= minsup
-      val trueSupport = support(cluster) // get the support
+      val trueSupport = support(cluster, prevSupport) // get the support
       if (flag) { // if the itemset has enough support and enough elements
         /* check if it is in the shortest path (i.e., contains the first location, and (sup \setminus r \setminus x) is empty */
         flag = flag && x.contains(trueSupport.getIntIterator.next()) &&
@@ -189,7 +205,7 @@ object CTM2 {
                 /* c becomes new lcluster, Add the element key to X */
                 L +:= (c, true, XplusYplusKey, R)
               }})
-              L = L.filter({ case (c: RoaringBitmap, _: Boolean, x: RoaringBitmap, r: RoaringBitmap) => !x.isEmpty && filterCluster(c, x, r) })
+              L = L.filter({ case (c: RoaringBitmap, _: Boolean, x: RoaringBitmap, r: RoaringBitmap) => !x.isEmpty && filterCluster(c, x, r, Some(lClusterSupport)) })
               // the current element has already been counted, if it has to be saved don't count it twice
               // do not also count the elements that will be checked in the next phase (i.e., for which filter returns true)
               L.foreach(t => if (t._2) { countToExtend.add(1) } else { if (t._3.getCardinality >= minsup) countOk.add(1) })

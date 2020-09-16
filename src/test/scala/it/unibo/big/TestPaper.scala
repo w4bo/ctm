@@ -3,7 +3,6 @@ package it.unibo.big
 import it.unibo.big.TemporalScale.{AbsoluteScale, NoScale}
 import it.unibo.big.Utils.{Itemid, Tid}
 import org.apache.log4j.{Level, LogManager, Logger}
-import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
 import org.datasyslab.geosparksql.utils.GeoSparkSQLRegistrator
 import org.roaringbitmap.RoaringBitmap
@@ -84,119 +83,119 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
     assert(neigh(3, 7, 1, Int.MaxValue, true)(10).getCardinality == 8, neigh(3, 7, 1, Int.MaxValue, true)(9).toString)
   }
 
-  test("1") {
-    val data17: Seq[(Tid, Vector[Itemid])] = Vector(
-      (1, Vector(0, 1, 2)),
-      (2, Vector(0, 1)),
-      (3, Vector(1, 2)),
-      (4, Vector(1, 2)),
-      (5, Vector(0, 2)),
-      (6, Vector(0, 2)),
-      (7, Vector(0, 2)),
-      (8, Vector(1)),
-      (9, Vector(1)),
-      (10, Vector(2)))
-    val res17 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data17, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res17._1 == 7, "Test 17 failed")
-  }
-
-  test("2") {
-    /* -- Test 16 --------------------------------------------------------------------------------------------------- */
-    val data16: Seq[(Tid, Vector[Itemid])] = Vector(
-      (1, Vector(0, 1, 2)),
-      (2, Vector(0, 1)),
-      (3, Vector(0, 2)),
-      (4, Vector(0, 2)),
-      (5, Vector(0, 2)),
-      (6, Vector(1)),
-      (7, Vector(1)),
-      (8, Vector(2)))
-    val res16 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data16, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res16._1 == 6, "Test 16 failed")
-  }
-
-  test("3") {
-    val data15: Seq[(Tid, Vector[Itemid])] = Vector(
-      (1, Vector(0, 1, 2)),
-      (2, Vector(0, 1)),
-      (3, Vector(0, 2)),
-      (4, Vector(0, 2)),
-      (5, Vector(0, 2)),
-      (6, Vector(2)))
-    val res15 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data15, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res15._1 == 5, "Test 15 failed")
-  }
-
-  test("4") {
-    val data14: Seq[(Tid, Vector[Itemid])] = Vector(
-      (1, Vector(1, 2, 3, 4, 5)),
-      (2, Vector(2, 3, 4, 6)),
-      (3, Vector(2, 3, 4, 7)),
-      (4, Vector(8, 9)))
-    val res14 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 3, debugData = data14, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res14._1 == 1, "Test 14 failed")
-    assert(res14._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3, 4), 3, 3))), "Test 14 failed")
-  }
-
-  test("5") {
-    val data12: Seq[(Tid, Vector[Itemid])] = Vector(
-      (1, Vector(1, 2, 3)),
-      (2, Vector(1, 2, 3)),
-      (3, Vector(1, 2, 3)))
-    val res12 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data12, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res12._1 == 1, "Test 12 failed")
-    assert(res12._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 3))), "Test 12 failed")
-  }
-
-  test("6") {
-    val data13: Seq[(Tid, Vector[Itemid])] = Vector(
-      (1, Vector(1, 2, 3)),
-      (2, Vector(2, 3, 4)),
-      (3, Vector(2, 3, 5)),
-      (4, Vector(2, 3, 6)))
-    val res13 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 2, debugData = data13, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res13._1 == 1, "Test 13 failed")
-    assert(res13._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3), 2, 4))), "Test 13 failed")
-  }
-
-  test("7") {
-    val data11: Seq[(Tid, Vector[Itemid])] = Vector(
-      (1, Vector(1, 2, 3)),
-      (2, Vector(1, 2, 3)),
-      (3, Vector(2, 3)))
-    val res11 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data11, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res11._1 == 2, "Test 11 failed")
-    assert(res11._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3), 2, 3), (RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), "Test 11 failed")
-  }
-
-  test("8") {
-    val data10: Seq[(Tid, Vector[Itemid])] = Vector(
-      (1, Vector(1, 2, 3)),
-      (2, Vector(2, 3)),
-      (3, Vector(1, 2, 3)))
-    val res10 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data10, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res10._1 == 2, "Test 10 failed")
-    assert(res10._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3), 2, 3), (RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), "Test 10 failed")
-  }
-
-  test("9") {
-    val data8: Seq[(Tid, Vector[Itemid])] = Vector(
-      (1, Vector(1, 3, 4)),
-      (2, Vector(2, 3, 5)),
-      (3, Vector(1, 2, 3, 5)),
-      (4, Vector(2, 5)),
-      (5, Vector(1, 2, 3, 5)))
-    val res8 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data8, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res8._1 == 6, "Test 8 failed")
-    assert(res8._2.toSet.equals(Set(
-      (RoaringBitmap.bitmapOf(3), 1, 4),
-      (RoaringBitmap.bitmapOf(1, 3), 2, 3),
-      (RoaringBitmap.bitmapOf(1, 3, 4), 3, 1),
-      (RoaringBitmap.bitmapOf(2, 5), 2, 4),
-      (RoaringBitmap.bitmapOf(2, 3, 5), 3, 3),
-      (RoaringBitmap.bitmapOf(1, 2, 3, 5), 4, 2))
-    ), "Test 8 failed")
-  }
+//  test("1") {
+//    val data17: Seq[(Tid, Vector[Itemid])] = Vector(
+//      (1, Vector(0, 1, 2)),
+//      (2, Vector(0, 1)),
+//      (3, Vector(1, 2)),
+//      (4, Vector(1, 2)),
+//      (5, Vector(0, 2)),
+//      (6, Vector(0, 2)),
+//      (7, Vector(0, 2)),
+//      (8, Vector(1)),
+//      (9, Vector(1)),
+//      (10, Vector(2)))
+//    val res17 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data17, bin_s = 1, timeScale = NoScale, returnResult = true)
+//    assert(res17._1 == 7, "Test 17 failed")
+//  }
+//
+//  test("2") {
+//    /* -- Test 16 --------------------------------------------------------------------------------------------------- */
+//    val data16: Seq[(Tid, Vector[Itemid])] = Vector(
+//      (1, Vector(0, 1, 2)),
+//      (2, Vector(0, 1)),
+//      (3, Vector(0, 2)),
+//      (4, Vector(0, 2)),
+//      (5, Vector(0, 2)),
+//      (6, Vector(1)),
+//      (7, Vector(1)),
+//      (8, Vector(2)))
+//    val res16 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data16, bin_s = 1, timeScale = NoScale, returnResult = true)
+//    assert(res16._1 == 6, "Test 16 failed")
+//  }
+//
+//  test("3") {
+//    val data15: Seq[(Tid, Vector[Itemid])] = Vector(
+//      (1, Vector(0, 1, 2)),
+//      (2, Vector(0, 1)),
+//      (3, Vector(0, 2)),
+//      (4, Vector(0, 2)),
+//      (5, Vector(0, 2)),
+//      (6, Vector(2)))
+//    val res15 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data15, bin_s = 1, timeScale = NoScale, returnResult = true)
+//    assert(res15._1 == 5, "Test 15 failed")
+//  }
+//
+//  test("4") {
+//    val data14: Seq[(Tid, Vector[Itemid])] = Vector(
+//      (1, Vector(1, 2, 3, 4, 5)),
+//      (2, Vector(2, 3, 4, 6)),
+//      (3, Vector(2, 3, 4, 7)),
+//      (4, Vector(8, 9)))
+//    val res14 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 3, debugData = data14, bin_s = 1, timeScale = NoScale, returnResult = true)
+//    assert(res14._1 == 1, "Test 14 failed")
+//    assert(res14._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3, 4), 3, 3))), "Test 14 failed")
+//  }
+//
+//  test("5") {
+//    val data12: Seq[(Tid, Vector[Itemid])] = Vector(
+//      (1, Vector(1, 2, 3)),
+//      (2, Vector(1, 2, 3)),
+//      (3, Vector(1, 2, 3)))
+//    val res12 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data12, bin_s = 1, timeScale = NoScale, returnResult = true)
+//    assert(res12._1 == 1, "Test 12 failed")
+//    assert(res12._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 3))), "Test 12 failed")
+//  }
+//
+//  test("6") {
+//    val data13: Seq[(Tid, Vector[Itemid])] = Vector(
+//      (1, Vector(1, 2, 3)),
+//      (2, Vector(2, 3, 4)),
+//      (3, Vector(2, 3, 5)),
+//      (4, Vector(2, 3, 6)))
+//    val res13 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 2, debugData = data13, bin_s = 1, timeScale = NoScale, returnResult = true)
+//    assert(res13._1 == 1, "Test 13 failed")
+//    assert(res13._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3), 2, 4))), "Test 13 failed")
+//  }
+//
+//  test("7") {
+//    val data11: Seq[(Tid, Vector[Itemid])] = Vector(
+//      (1, Vector(1, 2, 3)),
+//      (2, Vector(1, 2, 3)),
+//      (3, Vector(2, 3)))
+//    val res11 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data11, bin_s = 1, timeScale = NoScale, returnResult = true)
+//    assert(res11._1 == 2, "Test 11 failed")
+//    assert(res11._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3), 2, 3), (RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), "Test 11 failed")
+//  }
+//
+//  test("8") {
+//    val data10: Seq[(Tid, Vector[Itemid])] = Vector(
+//      (1, Vector(1, 2, 3)),
+//      (2, Vector(2, 3)),
+//      (3, Vector(1, 2, 3)))
+//    val res10 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data10, bin_s = 1, timeScale = NoScale, returnResult = true)
+//    assert(res10._1 == 2, "Test 10 failed")
+//    assert(res10._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3), 2, 3), (RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), "Test 10 failed")
+//  }
+//
+//  test("9") {
+//    val data8: Seq[(Tid, Vector[Itemid])] = Vector(
+//      (1, Vector(1, 3, 4)),
+//      (2, Vector(2, 3, 5)),
+//      (3, Vector(1, 2, 3, 5)),
+//      (4, Vector(2, 5)),
+//      (5, Vector(1, 2, 3, 5)))
+//    val res8 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data8, bin_s = 1, timeScale = NoScale, returnResult = true)
+//    assert(res8._1 == 6, "Test 8 failed")
+//    assert(res8._2.toSet.equals(Set(
+//      (RoaringBitmap.bitmapOf(3), 1, 4),
+//      (RoaringBitmap.bitmapOf(1, 3), 2, 3),
+//      (RoaringBitmap.bitmapOf(1, 3, 4), 3, 1),
+//      (RoaringBitmap.bitmapOf(2, 5), 2, 4),
+//      (RoaringBitmap.bitmapOf(2, 3, 5), 3, 3),
+//      (RoaringBitmap.bitmapOf(1, 2, 3, 5), 4, 2))
+//    ), "Test 8 failed")
+//  }
 
   test("Co-location") {
     val data: Seq[(Tid, Vector[Itemid])] = Vector(
