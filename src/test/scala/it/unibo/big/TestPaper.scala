@@ -286,7 +286,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       debugData = data,
       neighs = neigh(3, 7, Int.MaxValue, Int.MaxValue, true)
     )
-    assert(res._1 == 1, "Swarm failed")
     assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), res._2.toSet.toString)
   }
 
@@ -395,5 +394,24 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       neighs = neigh(3, 7, 1, Int.MaxValue, true)
     )
     assert(res._1 == 0, "Flock failed, result should be empty but is: " + res)
+  }
+
+  test("Flock 2") {
+    val data: Seq[(Tid, Vector[Itemid])] = Vector(
+      (1, Vector(1, 2, 3, 4)),
+      (2, Vector(1, 2, 4)),
+      (3, Vector(1, 2, 3))
+    )
+    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+      minsize = 2,
+      minsup = 3,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      returnResult = true,
+      debugData = data,
+      neighs = neigh(3, 7, 1, Int.MaxValue, true)
+    )
+    assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 3))), res._2.toSet.toString)
   }
 }

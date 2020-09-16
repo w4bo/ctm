@@ -114,32 +114,61 @@ object CTM2 {
                  // RoaringBitmap.andNot(RoaringBitmap.andNot(trueSupport, r), x).isEmpty
                  RoaringBitmap.andNot(trueSupport, r).getCardinality == x.getCardinality
       }
-      if (flag && brdNeighborhood.isDefined) {
-        var c = 0 // consecutive adjacent tiles
-        var isValidPlatoon = true
-        val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
-        trueSupport.forEach(toJavaConsumer({ case tile: Integer => { // for each tile in the support
-          if ((!isPlatoon && c < minsup || isPlatoon && isValidPlatoon) && !marked.contains(tile)) { // if a connected component of at least minsup has not been found && the tile has been not visited yet
-            c = 0 // reset the number of consecutive adjacent tiles
-            def searchConnectedComponent(i: Int): Unit = { // recursive function
-              marked += i // add the tile to the explored set
-              c += 1 // increase the number of adjacent tile
-              // for each neighbor of the current tile, if the neighbor is in the cluster support and it has been not explored yet ...
-              val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
-              // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
-              if (neighborhood.isDefined) {
-                neighborhood.get.forEach(toJavaConsumer(i => if (c < minsup && trueSupport.contains(i) && !marked.contains(i)) { searchConnectedComponent(i) }))
-              }
-            }
-            searchConnectedComponent(tile)
-            isValidPlatoon = c >= minsup
-          }
-        }}))
-        flag = flag && c >= minsup
-      }
+      //      if (flag && brdNeighborhood.isDefined) {
+      //        var c = 0 // consecutive adjacent tiles
+      //        var isValidPlatoon = true
+      //        val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
+      //        trueSupport.forEach(toJavaConsumer({ case tile: Integer => { // for each tile in the support
+      //          if ((!isPlatoon && c < minsup || isPlatoon && isValidPlatoon) && !marked.contains(tile)) { // if a connected component of at least minsup has not been found && the tile has been not visited yet
+      //            c = 0 // reset the number of consecutive adjacent tiles
+      //            def searchConnectedComponent(i: Int): Unit = { // recursive function
+      //              marked += i // add the tile to the explored set
+      //              c += 1 // increase the number of adjacent tile
+      //              // for each neighbor of the current tile, if the neighbor is in the cluster support and it has been not explored yet ...
+      //              val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
+      //              // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
+      //              if (neighborhood.isDefined) {
+      //                neighborhood.get.forEach(toJavaConsumer(i => if (c < minsup && trueSupport.contains(i) && !marked.contains(i)) { searchConnectedComponent(i) }))
+      //              }
+      //            }
+      //            searchConnectedComponent(tile)
+      //            isValidPlatoon = c >= minsup
+      //          }
+      //        }}))
+      //        flag = flag && c >= minsup
+      //      }
       flag
     }
 
+    def toExtend(support: RoaringBitmap): Boolean = {
+      val flag = support.getCardinality < minsup
+      if (flag || brdNeighborhood.isEmpty) {
+        return flag
+      }
+      var c = 0 // consecutive adjacent tiles
+      var isValidPlatoon = true
+      val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
+      support.forEach(toJavaConsumer({ case tile: Integer => { // for each tile in the support
+        if ((!isPlatoon && c < minsup || isPlatoon && isValidPlatoon) && !marked.contains(tile)) { // if a connected component of at least minsup has not been found && the tile has been not visited yet
+          c = 0 // reset the number of consecutive adjacent tiles
+          def searchConnectedComponent(i: Int): Unit = { // recursive function
+            marked += i // add the tile to the explored set
+            c += 1 // increase the number of adjacent tile
+            // for each neighbor of the current tile, if the neighbor is in the cluster support and it has been not explored yet ...
+            val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
+            // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
+            if (neighborhood.isDefined) {
+              neighborhood.get.forEach(toJavaConsumer(i => if (c < minsup && support.contains(i) && !marked.contains(i)) {
+                searchConnectedComponent(i)
+              }))
+            }
+          }
+          searchConnectedComponent(tile)
+          isValidPlatoon = c >= minsup
+        }
+      }}))
+      c < minsup
+    }
     /* *****************************************************************************************************************
      * Setting up the first cluster definition.
      * ****************************************************************************************************************/
@@ -193,7 +222,7 @@ object CTM2 {
               val Y: RoaringBitmap = RoaringBitmap.and(lClusterSupport, r) // TIDs in all the rows
               val XplusY: RoaringBitmap = RoaringBitmap.or(x, Y) // X U Y = x + Y
               var R: RoaringBitmap = RoaringBitmap.and(RoaringBitmap.andNot(r, Y), allCellsInTrajectories(lCluster)) // rows to consider
-              val t = (lCluster, lClusterSupport.getCardinality < minsup, XplusY, R)
+              val t = (lCluster, toExtend(lClusterSupport), XplusY, R)
               var L: Array[CarpenterRowSet] = if (t._2) Array[CarpenterRowSet]() else Array(t)
               /* Cluster t should be expanded */
               R.toArray.foreach({ case key: Tid => {
