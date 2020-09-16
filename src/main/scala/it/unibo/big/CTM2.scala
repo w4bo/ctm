@@ -9,12 +9,12 @@ import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
-import org.roaringbitmap.RoaringBitmap
+import org.roaringbitmap.{RoaringArray, RoaringBitmap}
 
 import scala.collection.mutable
 
 object CTM2 {
-  def CTM(spark: SparkSession, trans: RDD[(Tid, Itemid)], brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], minsup: Int, minsize: Int): (Long, Array[(RoaringBitmap, Tid, Tid)]) = {
+  def CTM(spark: SparkSession, trans: RDD[(Tid, Itemid)], brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], minsup: Int, minsize: Int, isPlatoon: Boolean): (Long, Array[(RoaringBitmap, Tid, Tid)]) = {
     import spark.implicits._
     if (trans.count() == 0) {
       println("Empty transactions")
@@ -100,9 +100,10 @@ object CTM2 {
       }
       if (flag && brdNeighborhood.isDefined) {
         var c = 0 // consecutive adjacent tiles
+        var isValidPlatoon = true
         val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
         trueSupport.forEach(toJavaConsumer({ case tile: Integer => { // for each tile in the support
-          if (c < minsup && !marked.contains(tile)) { // if a connected component of at least minsup has not been found && the tile has been not visited yet
+          if ((!isPlatoon && c < minsup || isPlatoon && isValidPlatoon) && !marked.contains(tile)) { // if a connected component of at least minsup has not been found && the tile has been not visited yet
             c = 0 // reset the number of consecutive adjacent tiles
             def searchConnectedComponent(i: Int): Unit = { // recursive function
               marked += i // add the tile to the explored set
@@ -115,6 +116,7 @@ object CTM2 {
               }
             }
             searchConnectedComponent(tile)
+            isValidPlatoon = c >= minsup
           }
         }}))
         flag = flag && c >= minsup
@@ -167,11 +169,7 @@ object CTM2 {
       countToExtend.reset()
 
       clusters =
-        (if (curIteration % repfreq == 0) {
-          clusters.repartition(partitions)
-        } else {
-          clusters
-        }) // Shuffle the data every few iterations
+        (if (curIteration % repfreq == 0) { clusters.repartition(partitions) } else { clusters }) // Shuffle the data every few iterations
           .flatMap({ case (lCluster: RoaringBitmap, extend: Boolean, x: RoaringBitmap, r: RoaringBitmap) =>
             // require(!RoaringBitmap.intersects(x, r), s"$x intersects $r")
             if (extend) { // If the cluster should be extended...
@@ -194,11 +192,7 @@ object CTM2 {
               L = L.filter({ case (c: RoaringBitmap, _: Boolean, x: RoaringBitmap, r: RoaringBitmap) => !x.isEmpty && filterCluster(c, x, r) })
               // the current element has already been counted, if it has to be saved don't count it twice
               // do not also count the elements that will be checked in the next phase (i.e., for which filter returns true)
-              L.foreach(t => if (t._2) {
-                countToExtend.add(1)
-              } else {
-                if (t._3.getCardinality >= minsup) countOk.add(1)
-              })
+              L.foreach(t => if (t._2) { countToExtend.add(1) } else { if (t._3.getCardinality >= minsup) countOk.add(1) })
               L
             } else {
               Array((lCluster, extend, x, r))
@@ -240,7 +234,7 @@ object CTM2 {
 
       // Remove useless checkpoints from memory
       spark.sparkContext.getPersistentRDDs.keys.toVector.sorted.dropRight(1).foreach(id => spark.sparkContext.getPersistentRDDs(id).unpersist(true))
-      printCluster(clusters)
+      // printCluster(clusters)
     } while (countToExtend.value > 0)
 
     val res: Array[(RoaringBitmap, Int, Int)] =
