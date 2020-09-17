@@ -16,10 +16,7 @@ import scala.collection.mutable
 object CTM2 {
   def CTM(spark: SparkSession, trans: RDD[(Tid, Itemid)], brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], minsup: Int, minsize: Int, isPlatoon: Boolean): (Long, Array[(RoaringBitmap, Tid, Tid)]) = {
     import spark.implicits._
-    if (trans.count() == 0) {
-      println("Empty transactions")
-      return (0, Array())
-    }
+    if (trans.count() == 0) { return (0, Array()) }
 
     /* *****************************************************************************************************************
      * BROADCASTING TRAJECTORIES IN CELL. This is the TT' used as transposed table as defined by Carpenter algorithm.
@@ -39,11 +36,7 @@ object CTM2 {
         .toMap
     )
     val nTransactions: Long = brdTrajInCell.value.size
-    val brdTrajInCell_bytes = brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum
-    println(brdTrajInCell_bytes + "B")
-    // if (debug || returnResult) {
-    //   brdTrajInCell.value.foreach(println)
-    // }
+    // if (debug || returnResult) { brdTrajInCell.value.foreach(println) }
     /* *****************************************************************************************************************
      * END - BROADCASTING TRAJECTORIES IN CELL
      * ****************************************************************************************************************/
@@ -67,14 +60,6 @@ object CTM2 {
      * @return a Bitmap containing all the cells common to all the trajectories specified by the input.
      */
     def support(itemset: RoaringBitmap, prevSupport: Option[RoaringBitmap] = None): RoaringBitmap = {
-      //      RoaringBitmap.bitmapOf(brdTrajInCell.value.filter({ case (_, transaction) =>
-      //        val iterator = itemset.iterator()
-      //        var isOk = true
-      //        while (iterator.hasNext && isOk) {
-      //          isOk = transaction.contains(iterator.next())
-      //        }
-      //        isOk
-      //      }).keys.toSeq: _*)
       val res = RoaringBitmap.bitmapOf()
       brdTrajInCell.value.foreach({ case (tid, transaction) =>
         if (!prevSupport.isDefined || !prevSupport.get.contains(tid)) {
@@ -260,7 +245,6 @@ object CTM2 {
         countStored += nItemsets - countStored
         clusters = clusters.filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => extend })
       }
-
       // Remove useless checkpoints from memory
       spark.sparkContext.getPersistentRDDs.keys.toVector.sorted.dropRight(1).foreach(id => spark.sparkContext.getPersistentRDDs(id).unpersist(true))
       // printCluster(clusters)
@@ -276,7 +260,7 @@ object CTM2 {
           .fold(Array.empty[(RoaringBitmap, Int, Int)])(_ ++ _)
       }
 
-    writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, unit_t, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell_bytes)
+    writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, unit_t, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum)
     spark.sparkContext.getPersistentRDDs.foreach(i => i._2.unpersist())
     spark.catalog.clearCache()
     spark.sqlContext.clearCache()
