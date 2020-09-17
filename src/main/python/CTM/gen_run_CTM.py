@@ -76,6 +76,8 @@ def giveExecutionPermissionToFile(path):
 
 runs = []
 with codecs.open(filename, "w", "utf-8") as w:
+    runs.append("#!/bin/bash")
+    runs.append("set -e")
     for dataset in datasets:
         for ckey, config in configs.items():
             # print(config)
