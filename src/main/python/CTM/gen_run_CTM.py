@@ -2,7 +2,7 @@
 # Generate configuration for the test runs. In each run, one parameters ranges in all values while the remaining parameters are given the default value.
 import codecs
 import os
-
+import sys
 filename = "../../../../run_CTM.sh"
 datasets = ["trajectory.milan_standard", "trajectory.geolife_standard"]  # "trajectory.oldenburg_standard",
 configs = {
@@ -61,7 +61,6 @@ params = {
 }
 
 for ckey, config in configs.items():
-    print(config)
     for key, value in params.items():
         config[key] = value
 
@@ -79,21 +78,24 @@ runs = []
 with codecs.open(filename, "w", "utf-8") as w:
     for dataset in datasets:
         for ckey, config in configs.items():
+            # print(config)
+            # sys.exit(1)
             for key, value in config.items():
                 values = value["values"] if not dataset in value else value[dataset]["values"]
                 if len(values) == 1: # useless to iterate on parameters with a single value, these are already tested
                     continue
                 for v in values:
                     s = " --tbl=" + dataset + (" --euclidean" if "oldenburg" in dataset else "")
-                    s += " --{key}={value}".format(key=key, value=v)
+                    if "false" not in v:
+                        s += " --{key}={value}".format(key=key, value=v).replace("=true", "")
                     to_exclude = False
                     for ikey, ivalue in config.items():
                         default = ivalue["default"] if not dataset in ivalue else ivalue[dataset]["default"]
                         if key in exclude and default in exclude[key]: # do not generate excluded configurations
                             to_exclude = True
                             continue
-                        if key != ikey:
-                            s += " --{key}={value}".format(key=ikey, value=default)
+                        if "false" not in default:
+                            s += " --{key}={value}".format(key=ikey, value=default).replace("=true", "")
                     print(s)
                     # See https://docs.oracle.com/javase/8/docs/technotes/guides/rmi/javarmiproperties.html
                     # spark.driver.extraJavaOptions
