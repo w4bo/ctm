@@ -505,13 +505,6 @@ object CTM {
         }
     }
     val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] = if (neighbors.nonEmpty) { Some(sparkSession.sparkContext.broadcast(neighbors)) } else { None }
-    if (brdNeighborhood.isDefined) {
-      val brdTrajInCell_bytes = brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum
-      println(brdTrajInCell_bytes + "B")
-      // if (debug || returnResult) {
-      //   brdNeighborhood.get.value.toList.sortBy(_._1).foreach(tuple => println(s"tid: ${tuple._1}, neighborhood: ${tuple._2}"))
-      // }
-    }
 
     /** run the algorithm. */
     CTM2.CTM(sparkSession, trans, brdNeighborhood, minsup, minsize, platoon)
