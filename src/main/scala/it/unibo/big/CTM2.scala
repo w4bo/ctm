@@ -184,9 +184,6 @@ object CTM2 {
             // require(!RoaringBitmap.intersects(x, r), s"$x intersects $r")
             if (extend) { // If the cluster should be extended...
               val lClusterSupport = support(lCluster) // store the current itemset support
-              val Y: RoaringBitmap = RoaringBitmap.and(lClusterSupport, r) // tiles shared by all transactions
-              val XplusY: RoaringBitmap = RoaringBitmap.or(x, Y) // ... are directly added to the current support
-              var R: RoaringBitmap = RoaringBitmap.and(RoaringBitmap.andNot(r, Y), allCellsInTrajectories(lCluster)) // ... and removed from the search space
               var L: Array[CarpenterRowSet] = Array() // accumulator
               // cannot check this after connectedComponent(RoaringBitmap.or(XplusY, R)), otherwise platoon fails
               if (!toExtend(lClusterSupport)) { // if is a valid co-movement pattern...  && filterCluster(lCluster, XplusY, R, Some(lClusterSupport))
@@ -194,6 +191,9 @@ object CTM2 {
                 countToExtend.add(-1) // decrease the counter to extend to avoid double counting (since later L.size will contain this pattern)
                 L +:= (lCluster, false, empty, empty)
               }
+              val Y: RoaringBitmap = RoaringBitmap.and(lClusterSupport, r) // tiles shared by all transactions
+              val XplusY: RoaringBitmap = RoaringBitmap.or(x, Y) // ... are directly added to the current support
+              var R: RoaringBitmap = RoaringBitmap.and(RoaringBitmap.andNot(r, Y), allCellsInTrajectories(lCluster)) // ... and removed from the search space
               // if at least a connected component exists
               if (connectedComponent(RoaringBitmap.or(XplusY, R), false) >= minsup) {
                 R.toArray.foreach({ case key: Tid => {
