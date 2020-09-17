@@ -317,6 +317,50 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
     assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 6))), res._2.toSet.toString)
   }
 
+  test("Platoon 2") {
+    val data: Seq[(Tid, Vector[Itemid])] = Vector(
+      (1, Vector(1, 2, 3, 4, 5, 6)),
+      (2, Vector(1, 2, 3)),
+      (4, Vector(1, 2, 4)),
+      (5, Vector(1, 2, 5)),
+      (7, Vector(1, 2, 6))
+    )
+    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+      minsize = 2,
+      minsup = 2,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      returnResult = true,
+      debugData = data,
+      neighs = neigh(3, 7, 1, Int.MaxValue, true),
+      isPlatoon = true
+    )
+    assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), res._2.toSet.toString)
+  }
+
+  test("Platoon 3") {
+    val data: Seq[(Tid, Vector[Itemid])] = Vector(
+      (1, Vector(1, 2, 3, 4, 5, 6)),
+      (2, Vector(1, 2, 3)),
+      (4, Vector(1, 2, 4)),
+      (5, Vector(1, 2, 5)),
+      (7, Vector(1, 6))
+    )
+    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+      minsize = 2,
+      minsup = 2,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      returnResult = true,
+      debugData = data,
+      neighs = neigh(3, 7, 1, Int.MaxValue, true),
+      isPlatoon = true
+    )
+    assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2), (RoaringBitmap.bitmapOf(1, 2), 2, 4))), res._2.toSet.toString)
+  }
+
   test("Platoon fail") {
     val data: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(1, 2)),
