@@ -369,7 +369,7 @@ object CTM {
    * @param euclidean    Whether the coordinates in the dataset are Polar or Euclidean
    * @return If `returnResult`, return the results as a centralized array. Otherwise, returns an empty array
    */
-  def run(inTable: String = "foo", minsize: Int, minsup: Int, isPlatoon: Boolean = false,
+  def run(inTable: String = "foo", minsize: Int, minsup: Int, platoon: Boolean = false,
           storage_thr: Int = STORAGE_THR, repfreq: Int = 1, limit: Int = Int.MaxValue, // EFFICIENCY PARAMETERS
           nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM, // SPARK CONFIGURATION
           timeScale: TemporalScale, unit_t: Int = SECONDS_IN_HOUR, bin_t: Int = 1, eps_t: Double = Double.PositiveInfinity,
@@ -514,7 +514,7 @@ object CTM {
     }
 
     /** run the algorithm. */
-    CTM2.CTM(sparkSession, trans, brdNeighborhood, minsup, minsize, isPlatoon)
+    CTM2.CTM(sparkSession, trans, brdNeighborhood, minsup, minsize, platoon)
   }
 
   /**
@@ -544,7 +544,7 @@ object CTM {
         limit = conf.limit().toInt,
         minsize = conf.minsize(),
         minsup = conf.minsup(),
-        isPlatoon = conf.isPlatoon()
+        platoon = conf.platoon()
       )
     }
   }
@@ -561,7 +561,7 @@ class TemporalTrajectoryFlowConf(arguments: Seq[String]) extends ScallopConf(arg
   val minsize = opt[Int]()
   val minsup = opt[Int]()
   val euclidean = opt[Boolean]()
-  val isPlatoon = opt[Boolean]()
+  val platoon = opt[Boolean]()
   val bins = opt[Int]()
   val epss = opt[Double]()
   val repfreq = opt[Int]()

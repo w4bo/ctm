@@ -311,7 +311,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       returnResult = true,
       debugData = data,
       neighs = neigh(3, 7, 1, Int.MaxValue, true),
-      isPlatoon = true
+      platoon = true
     )
     assert(res._1 == 1, "Failed, current result is: " + res)
     assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 6))), res._2.toSet.toString)
@@ -334,7 +334,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       returnResult = true,
       debugData = data,
       neighs = neigh(3, 7, 1, Int.MaxValue, true),
-      isPlatoon = true
+      platoon = true
     )
     assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), res._2.toSet.toString)
   }
@@ -356,7 +356,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       returnResult = true,
       debugData = data,
       neighs = neigh(3, 7, 1, Int.MaxValue, true),
-      isPlatoon = true
+      platoon = true
     )
     assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2), (RoaringBitmap.bitmapOf(1, 2), 2, 4))), res._2.toSet.toString)
   }
@@ -383,7 +383,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       returnResult = true,
       debugData = data,
       neighs = neigh(3, 7, 1, Int.MaxValue, true),
-      isPlatoon = true
+      platoon = true
     )
     assert(res._2.toSet.equals(Set()), res._2.toSet.toString)
   }
