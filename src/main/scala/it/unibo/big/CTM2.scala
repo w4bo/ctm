@@ -3,13 +3,13 @@ package it.unibo.big
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
-import it.unibo.big.CTM.{bin_s, bin_t, conf, debug, eps_s, eps_t, inTable, limit, linesToPrint, maxram, ncores, nexecutors, outTable, outTable2, partitions, repfreq, returnResult, storage_thr, timeScale, unit_t}
-import it.unibo.big.Utils.{CarpenterRowSet, CustomTimer, Itemid, Tid, toJavaConsumer, writeStatsToFile}
+import it.unibo.big.CTM._
+import it.unibo.big.Utils._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
-import org.roaringbitmap.{RoaringArray, RoaringBitmap}
+import org.roaringbitmap.RoaringBitmap
 
 import scala.collection.mutable
 
@@ -207,7 +207,7 @@ object CTM2 {
               if (!toExtend(lClusterSupport)) { // if is a valid co-movement pattern...  && filterCluster(lCluster, XplusY, R, Some(lClusterSupport))
                 countOk.add(1) // update the counter
                 countToExtend.add(-1) // decrease the counter to extend to avoid double counting (since later L.size will contain this pattern)
-                L +:= (lCluster, false, XplusY, R)
+                L +:= (lCluster, false, empty, empty)
               }
               // if at least a connected component exists
               if (connectedComponent(RoaringBitmap.or(XplusY, R), false) >= minsup) {
@@ -224,7 +224,7 @@ object CTM2 {
               L
             } else {
               if (!lCluster.hasRunCompression) lCluster.runOptimize()
-              Array((lCluster, extend, empty, empty))
+              Array((lCluster, extend, x, r))
             }
           })
           .persist(StorageLevel.MEMORY_AND_DISK_SER) // .localCheckpoint()

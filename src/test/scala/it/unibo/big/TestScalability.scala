@@ -35,7 +35,7 @@ class TestScalability extends FunSuite with BeforeAndAfterEach with BeforeAndAft
   override def afterAll(): Unit = {
     sparkSession.sparkContext.stop()
   }
-//
+
 //  test("scalability") {
 //    val r: Random = new Random(3)
 //    val data: Seq[(Int, Vector[Int])] = (1 to 21).map(tid => (tid, (1 to 100000).filter(_ => r.nextDouble() >= 0.5).toVector))
