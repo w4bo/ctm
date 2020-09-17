@@ -465,6 +465,8 @@ object CTM {
           // create the quanta of the reference system from the `inputDFtable` temporal table, and store it to the `cellToIDTable`
           getQuanta(sparkSession, transactionTable, cellToIDTable)
           sparkSession.sql(s"select * from $cellToIDTable limit $linesToPrint").show()
+        }
+        if (!sparkSession.catalog.tableExists(DB_NAME, neighborhoodTable)) {
           // create the table with all neighbors for each cell
           if (!eps_s.isInfinite || !eps_t.isInfinite) {
             println(s"--- Generating $neighborhoodTable...")
