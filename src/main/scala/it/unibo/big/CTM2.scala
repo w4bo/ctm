@@ -212,7 +212,7 @@ object CTM2 {
      * @param clusters the cluster RDD to print
      */
     def printCluster(clusters: RDD[CarpenterRowSet]): Unit = if (debug || returnResult) clusters.sortBy(i => -i._4.getCardinality).map(i => (i._1.toArray.toVector, i._2, i._3, i._4, support(i._1))).take(linesToPrint).foreach(println)
-
+    val empty: RoaringBitmap = RoaringBitmap.bitmapOf()
     do {
       curIteration += 1
       println(s"\n--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} $conf Iteration: " + curIteration)
@@ -250,7 +250,7 @@ object CTM2 {
               L.foreach(t => if (t._2) { countToExtend.add(1) } else { if (t._3.getCardinality >= minsup) countOk.add(1) })
               L
             } else {
-              Array((lCluster, extend, x, r))
+              Array((lCluster, extend, empty, empty))
             }
           })
           .persist(StorageLevel.MEMORY_AND_DISK_SER) // .localCheckpoint()
@@ -297,8 +297,8 @@ object CTM2 {
         Array()
       } else {
         clusters
-          .filter(cluster => !cluster._2 && cluster._3.getCardinality >= minsup) // This filter is mandatory to obtain only the interesting cells
-          .map(i => Array[(RoaringBitmap, Int, Int)]((i._1, i._1.getCardinality, i._3.getCardinality)))
+          .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => !extend }) // This filter is mandatory to obtain only the interesting cells
+          .map({ case (i: RoaringBitmap, _: Boolean, _: RoaringBitmap, _: RoaringBitmap) => Array[(RoaringBitmap, Int, Int)]((i, i.getCardinality, support(i).getCardinality)) })
           .fold(Array.empty[(RoaringBitmap, Int, Int)])(_ ++ _)
       }
 
