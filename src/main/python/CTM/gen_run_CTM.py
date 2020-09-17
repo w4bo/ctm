@@ -94,7 +94,7 @@ with codecs.open(filename, "w", "utf-8") as w:
                         if key in exclude and default in exclude[key]: # do not generate excluded configurations
                             to_exclude = True
                             continue
-                        if "false" not in default:
+                        if key != ikey and "false" not in default:
                             s += " --{key}={value}".format(key=ikey, value=default).replace("=true", "")
                     print(s)
                     # See https://docs.oracle.com/javase/8/docs/technotes/guides/rmi/javarmiproperties.html
