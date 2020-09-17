@@ -60,8 +60,8 @@ params = {
     },
 }
 
-default_params = {}
 for ckey, config in configs.items():
+    print(config)
     for key, value in params.items():
         config[key] = value
 
@@ -78,8 +78,8 @@ def giveExecutionPermissionToFile(path):
 runs = []
 with codecs.open(filename, "w", "utf-8") as w:
     for dataset in datasets:
-        for config in configs:
-            for key, value in params.items():
+        for ckey, config in configs.items():
+            for key, value in config.items():
                 values = value["values"] if not dataset in value else value[dataset]["values"]
                 if len(values) == 1: # useless to iterate on parameters with a single value, these are already tested
                     continue
@@ -87,7 +87,7 @@ with codecs.open(filename, "w", "utf-8") as w:
                     s = " --tbl=" + dataset + (" --euclidean" if "oldenburg" in dataset else "")
                     s += " --{key}={value}".format(key=key, value=v)
                     to_exclude = False
-                    for ikey, ivalue in params.items():
+                    for ikey, ivalue in config.items():
                         default = ivalue["default"] if not dataset in ivalue else ivalue[dataset]["default"]
                         if key in exclude and default in exclude[key]: # do not generate excluded configurations
                             to_exclude = True
