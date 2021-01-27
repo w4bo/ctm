@@ -2,9 +2,9 @@ package it.unibo.big
 
 import java.text.SimpleDateFormat
 import java.util.Calendar
-
 import it.unibo.big.CTM._
 import it.unibo.big.Utils._
+import org.apache.hadoop.hbase.protobuf.generated.HBaseProtos.UUID
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{SaveMode, SparkSession}
@@ -223,10 +223,8 @@ object CTM2 {
         if (storage_thr > 0) {
           println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Writing itemsets to the database")
           val towrite = clusters
-            .filter({ case (_: RoaringBitmap, extend: Boolean, x: RoaringBitmap, _: RoaringBitmap) => !extend && x.getCardinality >= minsup })
-            .map(cluster => (cluster._1, cluster._3))
-            .zipWithIndex // .zipWithUniqueId
-            .map({ case (itemset: (RoaringBitmap, RoaringBitmap), uid: Long) => (uid, itemset._1, itemset._2) })
+            .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => !extend })
+            .map(cluster => (cluster._1.hashCode(), cluster._1, cluster._3))
             .cache()
 
           towrite
