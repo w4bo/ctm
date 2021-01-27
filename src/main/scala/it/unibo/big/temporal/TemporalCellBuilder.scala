@@ -97,6 +97,7 @@ object TemporalCellBuilder {
     var count = -1L
     var prevcount = -1L
     while (count < 0 || prevcount != count) {
+      println(s"reducing trajectories... from $prevcount")
       rdd = rdd
         .filter({ case ((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]) => locations.length >= minSup })
         .flatMap({ case ((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]) =>
@@ -111,7 +112,7 @@ object TemporalCellBuilder {
         .cache()
       prevcount = count
       count = rdd.count()
-      println(s"reducing trajectories... $count")
+      println(s"reducing trajectories... to $count")
     }
 
     rdd
