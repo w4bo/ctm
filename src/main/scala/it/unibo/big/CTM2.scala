@@ -224,13 +224,13 @@ object CTM2 {
           println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Writing itemsets to the database")
           val towrite: RDD[(Int, RoaringBitmap, RoaringBitmap)] = clusters
             .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => !extend })
-            .map(cluster => (cluster._1.hashCode(), cluster._1, cluster._3))
+            .map(cluster => (cluster._1.hashCode(), cluster._1, support(cluster._1)))
             .cache()
 
           towrite
-            .flatMap({ case (uid: Int, itemset: RoaringBitmap, suport: RoaringBitmap) =>
+            .flatMap({ case (uid: Int, itemset: RoaringBitmap, support: RoaringBitmap) =>
               val itemsetSize = itemset.getCardinality
-              val itemsetSupp = suport.getCardinality
+              val itemsetSupp = support.getCardinality
               itemset.toArray.map(i => {
                 require(i >= 0, "itemid is below zero")
                 (uid, i, itemsetSize, itemsetSupp)
@@ -239,8 +239,8 @@ object CTM2 {
             .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(itemsetTable)
 
           towrite
-            .flatMap({ case (uid: Int, _: RoaringBitmap, suport: RoaringBitmap) =>
-              suport.toArray.map(i => {
+            .flatMap({ case (uid: Int, _: RoaringBitmap, support: RoaringBitmap) =>
+              support.toArray.map(i => {
                 require(i >= 0, "tileid is below zero")
                 (uid, i)
               })
