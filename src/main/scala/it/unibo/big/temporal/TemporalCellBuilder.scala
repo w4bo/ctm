@@ -111,8 +111,8 @@ object TemporalCellBuilder {
         .cache()
       val count = rdd.count()
       loop = count != prevcount
-      prevcount = count
       println(s"reducing trajectories... from $prevcount to $count")
+      prevcount = count
     }
 
     rdd
