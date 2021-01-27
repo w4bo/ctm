@@ -111,6 +111,7 @@ object TemporalCellBuilder {
         .cache()
       prevcount = count
       count = rdd.count()
+      println(s"reducing trajectories... $count")
     }
 
     rdd
