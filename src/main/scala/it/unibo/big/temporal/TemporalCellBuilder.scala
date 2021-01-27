@@ -5,8 +5,7 @@ import it.unibo.big.TemporalScale.{AbsoluteScale, DailyScale, NoScale, WeeklySca
 import it.unibo.big.Utils._
 import it.unibo.big.temporal.exception.InvalidTableSchemaException
 import it.unibo.big.temporal.weekly.WeeklyHourTimeStamp
-import org.apache.spark.SparkContext
-import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.roaringbitmap.RoaringBitmap
@@ -14,6 +13,7 @@ import org.roaringbitmap.RoaringBitmap
 object TemporalCellBuilder {
   /**
    * Get input data (with bucketed time and location).
+   *
    * @param sparkSession the sparksession which will compute all the operations.
    * @param tableName    the table name to be processed.
    * @param timescale    time scale
@@ -46,7 +46,7 @@ object TemporalCellBuilder {
     // TODO: BE AWARE, LIMIT CREATES A SINGLE PARTITION
   }
 
-  private def computeLatitudeQuery(euclidean:Boolean, cellRound:Int): String =
+  private def computeLatitudeQuery(euclidean: Boolean, cellRound: Int): String =
     if (euclidean) {
       s"round(latitude / ${DEFAULT_CELL_SIDE * cellRound}, 0)"
     } else {
@@ -63,6 +63,7 @@ object TemporalCellBuilder {
 
   /**
    * Get quanta.
+   *
    * @param sparkSession     the spark session to compute all the operations.
    * @param transactionTable the input view, must have some specific columns inside.
    * @param outputTableName  the output table that will be stored on hive.
@@ -79,6 +80,7 @@ object TemporalCellBuilder {
 
   /**
    * Create the transaction table, where each (userid, trajectoryid) is mapped to an itemid, and (lat, lon, timestamp) is mapped to tid
+   *
    * @param sparkSession the spark session which will execute everything.
    * @param inTable      the name of the table containing the points and the temporal bucket.
    * @param minSize      minimum itemset size
@@ -87,37 +89,55 @@ object TemporalCellBuilder {
    */
   def mapToReferenceSystem(sparkSession: SparkSession, inTable: String, transactionTable: String, minSize: Int, minSup: Int, limit: Int): Unit = {
     import sparkSession.sqlContext.implicits._
-    sparkSession.sql(s"select $USER_ID_FIELD, $TRAJECTORY_ID_FIELD, $LATITUDE_FIELD_NAME, $LONGITUDE_FIELD_NAME, $TIME_BUCKET_COLUMN_NAME from $inTable")
+    var rdd = sparkSession.sql(s"select $USER_ID_FIELD, $TRAJECTORY_ID_FIELD, $LATITUDE_FIELD_NAME, $LONGITUDE_FIELD_NAME, $TIME_BUCKET_COLUMN_NAME from $inTable")
       .rdd
       .map(row => ((row.get(0).asInstanceOf[String], row.get(1).asInstanceOf[String]), Array((row.get(2).asInstanceOf[Double], row.get(3).asInstanceOf[Double], row.get(4).asInstanceOf[Long]))))
       .reduceByKey(_ ++ _)
-      .filter({ case ((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]) => locations.length >= minSup })
-      .zipWithIndex() // .zipWithUniqueId() //
-      .filter({ case (_, itemid: Long) => itemid <= limit })
-      .flatMap({ case (((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]), itemid: Long) =>
-        locations.map({ case (latitude: Double, longitude: Double, timestamp: Long) =>
-          require(itemid.toInt >= 0, "itemid is below 0")
-          ((latitude, longitude, timestamp), Array((itemid.toInt, userid, trajectoryid)))
+
+    var count = -1L
+    var prevcount = -1L
+    while (count < 0 || prevcount != count) {
+      rdd = rdd
+        .filter({ case ((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]) => locations.length >= minSup })
+        .flatMap({ case ((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]) =>
+          locations.map({ case (latitude: Double, longitude: Double, timestamp: Long) => ((latitude, longitude, timestamp), Array((userid, trajectoryid))) })
         })
+        .reduceByKey(_ ++ _)
+        .filter({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(String, String)]) => trajectories.length >= minSize })
+        .flatMap({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(String, String)]) =>
+          trajectories.map({ case (userid, trajectoryid) => ((userid, trajectoryid), Array((latitude, longitude, timestamp))) })
+        })
+        .reduceByKey(_ ++ _)
+        .cache()
+      prevcount = count
+      count = rdd.count()
+    }
+
+    rdd
+      .zipWithIndex()
+      .filter(t => t._2 <= limit)
+      .flatMap({ case (((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]), itemid: Long) =>
+        locations.map({ case (latitude: Double, longitude: Double, timestamp: Long) => ((latitude, longitude, timestamp), Array((itemid.toInt, userid, trajectoryid))) })
       })
       .reduceByKey(_ ++ _)
       .filter({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(Int, String, String)]) => trajectories.length >= minSize })
       .sortByKey()
-      .zipWithIndex() // .zipWithUniqueId() //
-      .flatMap({ case (((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(Int, String, String)]), tid: Long) =>
-        trajectories.map({ case (itemid, userid, trajectoryid) =>
-          require(tid.toInt >= 0, "tid is below 0")
-          (tid.toInt, itemid, userid, trajectoryid, latitude, longitude, timestamp)
-        })
+      .zipWithIndex()
+      .flatMap({
+        case (((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(Int, String, String)]), tid: Long) =>
+          trajectories.map({ case (itemid, userid, trajectoryid) =>
+            require(tid.toInt >= 0, "tid is below 0")
+            (tid.toInt, itemid, userid, trajectoryid, latitude, longitude, timestamp)
+          })
       })
       .toDF("tid", "itemid", USER_ID_FIELD, TRAJECTORY_ID_FIELD, LATITUDE_FIELD_NAME, LONGITUDE_FIELD_NAME, TIME_BUCKET_COLUMN_NAME)
       .write.mode(SaveMode.ErrorIfExists)
-      // .bucketBy(200, "tid")
       .saveAsTable(transactionTable)
   }
 
   /**
    * Create a neighborhood table using weekly distance metrics.
+   *
    * @param spark             the spark session which will compute all the operations.
    * @param cellTableName     the cell table name.
    * @param neighborhoodTable the neighborhood table name.
@@ -155,6 +175,7 @@ object TemporalCellBuilder {
 
   /**
    * Create and broadcast the neighbourhood of each cell.
+   *
    * @param spark              the spark session for the querying operations.
    * @param epss               an optional containing the spatial threshold, if specified.
    * @param epst               an optional containing the temporal threshold, if specified.
