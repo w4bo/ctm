@@ -96,6 +96,7 @@ object TemporalCellBuilder {
 
     var count = -1L
     var prevcount = -1L
+    println(s"${count < 0} ${prevcount != count} ${count < 0 || prevcount != count}")
     while (count < 0 || prevcount != count) {
       println(s"reducing trajectories... from $prevcount")
       rdd = rdd
