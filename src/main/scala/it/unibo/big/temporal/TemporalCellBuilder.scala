@@ -178,7 +178,7 @@ object TemporalCellBuilder {
         .sql(finalQuery)
         .rdd
         .map(r => (r.get(0).asInstanceOf[Int], RoaringBitmap.bitmapOf(r.get(1).asInstanceOf[Int])))
-        .reduceByKey(RoaringBitmap.or(_, _))
+        .reduceByKey(RoaringBitmap.or)
         .collect()
         .toMap
     } else {

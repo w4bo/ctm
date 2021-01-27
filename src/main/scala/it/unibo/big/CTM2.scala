@@ -62,7 +62,7 @@ object CTM2 {
     def support(itemset: RoaringBitmap, prevSupport: Option[RoaringBitmap] = None): RoaringBitmap = {
       val res = RoaringBitmap.bitmapOf()
       brdTrajInCell.value.foreach({ case (tid, transaction) =>
-        if (!prevSupport.isDefined || !prevSupport.get.contains(tid)) {
+        if (prevSupport.isEmpty || !prevSupport.get.contains(tid)) {
           val iterator = itemset.iterator()
           var isOk = true
           while (isOk && iterator.hasNext) {
@@ -83,7 +83,7 @@ object CTM2 {
       var c = 0
       var isValidPlatoon = true
       val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
-      support.forEach(toJavaConsumer({ case tile: Integer => { // for each tile in the support
+      support.forEach(toJavaConsumer({ tile: Integer => { // for each tile in the support
         if ((!isPlatoon && c < minsup || isPlatoon && isValidPlatoon) && !marked.contains(tile)) { // if a connected component of at least minsup has not been found && the tile has been not visited yet
           c = 0 // reset the number of consecutive adjacent tiles
           def connectedComponentRec(i: Int): Unit = { // recursive function
@@ -98,10 +98,12 @@ object CTM2 {
               }))
             }
           }
+
           connectedComponentRec(tile)
           isValidPlatoon = c >= minsup
         }
-      }}))
+      }
+      }))
       c
     }
 
@@ -162,16 +164,10 @@ object CTM2 {
     println(s"\n--- Init clusters: $clusterCount")
     countOk.reset()
     countToExtend.reset()
-    // printCluster(clusters)
     /* *****************************************************************************************************************
      * END - Creating the transactional dataset
      * ****************************************************************************************************************/
 
-    /**
-     * Print a clusters RDD to STDOUT
-     * @param clusters the cluster RDD to print
-     */
-    def printCluster(clusters: RDD[CarpenterRowSet]): Unit = if (debug || returnResult) clusters.sortBy(i => -i._4.getCardinality).map(i => (i._1.toArray.toVector, i._2, i._3, i._4, support(i._1))).take(linesToPrint).foreach(println)
     val empty: RoaringBitmap = RoaringBitmap.bitmapOf()
     do {
       curIteration += 1
@@ -195,8 +191,8 @@ object CTM2 {
               val XplusY: RoaringBitmap = RoaringBitmap.or(x, Y) // ... are directly added to the current support
               var R: RoaringBitmap = RoaringBitmap.and(RoaringBitmap.andNot(r, Y), allCellsInTrajectories(lCluster)) // ... and removed from the search space
               // if at least a connected component exists
-              if (connectedComponent(RoaringBitmap.or(XplusY, R), false) >= minsup) {
-                R.toArray.foreach({ case key: Tid => {
+              if (connectedComponent(RoaringBitmap.or(XplusY, R), isPlatoon = false) >= minsup) {
+                R.toArray.foreach({ key: Tid => {
                   val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // new co-movement pattern
                   R = RoaringBitmap.remove(R, key, key + 1) // reduce the search space
                   val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1) // update the current support
@@ -204,7 +200,7 @@ object CTM2 {
                     L +:= (c, true, XplusYplusKey, R) // ... store it
                   }
                 }})
-                countToExtend.add(L.size)
+                countToExtend.add(L.length)
               }
               L
             } else {
@@ -226,20 +222,34 @@ object CTM2 {
       if (!returnResult && (countToExtend.value == 0 || nItemsets - countStored >= storage_thr)) {
         if (storage_thr > 0) {
           println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Writing itemsets to the database")
-          clusters
+          val towrite = clusters
             .filter({ case (_: RoaringBitmap, extend: Boolean, x: RoaringBitmap, _: RoaringBitmap) => !extend && x.getCardinality >= minsup })
             .map(cluster => (cluster._1, cluster._3))
             .zipWithIndex // .zipWithUniqueId
-            .flatMap({ case (itemset: (RoaringBitmap, RoaringBitmap), uid: Long) =>
-              val toAdd = toAddIdx.value
-              val itemsetSize = itemset._1.getCardinality
-              val itemsetSupp = itemset._2.getCardinality
-              itemset._1.toArray.map(i => {
+            .map({ case (itemset: (RoaringBitmap, RoaringBitmap), uid: Long) => (uid, itemset._1, itemset._2) })
+            .cache()
+
+          towrite
+            .flatMap({ case (uid: Long, itemset: RoaringBitmap, suport: RoaringBitmap) =>
+              val itemsetSize = itemset.getCardinality
+              val itemsetSupp = suport.getCardinality
+              itemset.toArray.map(i => {
                 require(i >= 0, "itemid is below zero")
-                (uid + toAdd, i, itemsetSize, itemsetSupp) /*, icoh */
+                (uid, i, itemsetSize, itemsetSupp) /*, icoh */
                 // val icoh = coh(itemset._1)
               })
-            }).toDF("itemsetid", "itemid", "size", "support").write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(outTable)
+            }).toDF("itemsetid", "itemid", "size", "support")
+            .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(itemsetTable)
+
+          towrite
+            .flatMap({ case (uid: Long, _: RoaringBitmap, suport: RoaringBitmap) =>
+              suport.toArray.map(i => {
+                require(i >= 0, "tileid is below zero")
+                (uid, i)
+              })
+            }).toDF("itemsetid", "tileid")
+            .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(supportTable)
+
           println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Done writing")
         }
         countStored += nItemsets - countStored
@@ -255,7 +265,7 @@ object CTM2 {
         Array()
       } else {
         clusters
-          .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => !extend }) // This filter is mandatory to obtain only the interesting cells
+          // .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => !extend }) // This filter is mandatory to obtain only the interesting cells
           .map({ case (i: RoaringBitmap, _: Boolean, _: RoaringBitmap, _: RoaringBitmap) => Array[(RoaringBitmap, Int, Int)]((i, i.getCardinality, support(i).getCardinality)) })
           .fold(Array.empty[(RoaringBitmap, Int, Int)])(_ ++ _)
       }

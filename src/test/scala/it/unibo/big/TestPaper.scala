@@ -213,7 +213,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (14, Vector(2))
     )
 
-    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+    val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 2,
       bin_s = 1,
@@ -246,7 +246,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (20, Vector(3)),
       (21, Vector(3))
     )
-    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+    val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 3,
       bin_s = 1,
@@ -276,7 +276,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (18, Vector(3)),
       (21, Vector(3))
     )
-    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+    val res = CTM.run(spark = Some(sparkSession),
       minsize = 3,
       minsup = 2,
       bin_s = 1,
@@ -302,7 +302,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (19, Vector(3)),
       (20, Vector(1, 2))
     )
-    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+    val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 2,
       bin_s = 1,
@@ -325,7 +325,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (5, Vector(1, 2, 5)),
       (7, Vector(1, 2, 6))
     )
-    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+    val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 2,
       bin_s = 1,
@@ -347,7 +347,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (5, Vector(1, 2, 5)),
       (7, Vector(1, 6))
     )
-    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+    val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 2,
       bin_s = 1,
@@ -374,7 +374,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (19, Vector(3)),
       (20, Vector(1, 2))
     )
-    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+    val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 3,
       bin_s = 1,
@@ -401,7 +401,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (19, Vector(3)),
       (20, Vector(1, 2))
     )
-    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+    val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 3,
       bin_s = 1,
@@ -446,7 +446,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (2, Vector(1, 2, 4)),
       (3, Vector(1, 2, 3))
     )
-    val res: (Long, Array[(RoaringBitmap, Int, Int)]) = CTM.run(spark = Some(sparkSession),
+    val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 3,
       bin_s = 1,
