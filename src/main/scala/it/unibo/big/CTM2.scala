@@ -239,7 +239,7 @@ object CTM2 {
             .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(itemsetTable)
 
           towrite
-            .flatMap({ case (uid: Long, _: RoaringBitmap, suport: RoaringBitmap) =>
+            .flatMap({ case (uid: Int, _: RoaringBitmap, suport: RoaringBitmap) =>
               suport.toArray.map(i => {
                 require(i >= 0, "tileid is below zero")
                 (uid, i)
