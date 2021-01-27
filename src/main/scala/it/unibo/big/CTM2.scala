@@ -222,19 +222,18 @@ object CTM2 {
       if (!returnResult && (countToExtend.value == 0 || nItemsets - countStored >= storage_thr)) {
         if (storage_thr > 0) {
           println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Writing itemsets to the database")
-          val towrite = clusters
+          val towrite: RDD[(Int, RoaringBitmap, RoaringBitmap)] = clusters
             .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => !extend })
             .map(cluster => (cluster._1.hashCode(), cluster._1, cluster._3))
             .cache()
 
           towrite
-            .flatMap({ case (uid: Long, itemset: RoaringBitmap, suport: RoaringBitmap) =>
+            .flatMap({ case (uid: Int, itemset: RoaringBitmap, suport: RoaringBitmap) =>
               val itemsetSize = itemset.getCardinality
               val itemsetSupp = suport.getCardinality
               itemset.toArray.map(i => {
                 require(i >= 0, "itemid is below zero")
-                (uid, i, itemsetSize, itemsetSupp) /*, icoh */
-                // val icoh = coh(itemset._1)
+                (uid, i, itemsetSize, itemsetSupp)
               })
             }).toDF("itemsetid", "itemid", "size", "support")
             .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(itemsetTable)
