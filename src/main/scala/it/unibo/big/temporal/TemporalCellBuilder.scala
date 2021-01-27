@@ -94,11 +94,9 @@ object TemporalCellBuilder {
       .map(row => ((row.get(0).asInstanceOf[String], row.get(1).asInstanceOf[String]), Array((row.get(2).asInstanceOf[Double], row.get(3).asInstanceOf[Double], row.get(4).asInstanceOf[Long]))))
       .reduceByKey(_ ++ _)
 
-    var count = -1L
     var prevcount = -1L
-    println(s"${count < 0} ${prevcount != count} ${count < 0 || prevcount != count}")
-    while (count < 0 || prevcount != count) {
-      println(s"reducing trajectories... from $prevcount")
+    var loop = true
+    while (loop) {
       rdd = rdd
         .filter({ case ((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]) => locations.length >= minSup })
         .flatMap({ case ((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]) =>
@@ -111,9 +109,10 @@ object TemporalCellBuilder {
         })
         .reduceByKey(_ ++ _)
         .cache()
+      val count = rdd.count()
+      loop = count != prevcount
       prevcount = count
-      count = rdd.count()
-      println(s"reducing trajectories... to $count")
+      println(s"reducing trajectories... from $prevcount to $count")
     }
 
     rdd
