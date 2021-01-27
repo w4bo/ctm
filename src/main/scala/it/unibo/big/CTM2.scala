@@ -259,7 +259,6 @@ object CTM2 {
           .map({ case (i: RoaringBitmap, _: Boolean, _: RoaringBitmap, _: RoaringBitmap) => Array[(RoaringBitmap, Int, Int)]((i, i.getCardinality, support(i).getCardinality)) })
           .fold(Array.empty[(RoaringBitmap, Int, Int)])(_ ++ _)
       }
-
     writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, unit_t, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum)
     spark.sparkContext.getPersistentRDDs.foreach(i => i._2.unpersist())
     spark.catalog.clearCache()

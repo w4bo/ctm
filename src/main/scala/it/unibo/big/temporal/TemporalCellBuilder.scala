@@ -174,7 +174,6 @@ object TemporalCellBuilder {
       case _ =>
     }
     if (!(finalQuery equals basicQuery)) {
-      print("--- Broadcasting brdNeighborhood... ")
       spark
         .sql(finalQuery)
         .rdd
