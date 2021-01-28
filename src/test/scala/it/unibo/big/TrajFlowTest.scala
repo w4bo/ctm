@@ -1,12 +1,12 @@
 package it.unibo.big
 
-import java.util.Random
-
 import org.apache.spark.HashPartitioner
 import org.junit.Assert._
 import org.junit.Test
 import org.roaringbitmap.RoaringBitmap
 import org.scalatest.junit.JUnitSuite
+
+import java.util.Random
 
 class TrajFlowTest extends JUnitSuite {
 
@@ -45,6 +45,25 @@ class TrajFlowTest extends JUnitSuite {
     val itemset = brdTrajInCell(r.nextInt(brdTrajInCell.size))
     var startTime = System.currentTimeMillis()
 
+    print("Sol andnot... ")
+    startTime = System.currentTimeMillis()
+    val res2 = RoaringBitmap.bitmapOf(brdTrajInCell.filter({ case (_, transaction) => RoaringBitmap.andNot(itemset, transaction).isEmpty }).keys.toSeq: _*)
+    val time2 = System.currentTimeMillis() - startTime
+    println(time2)
+
+    print("Sol hybrid 2... ")
+    startTime = System.currentTimeMillis()
+    val res5 = RoaringBitmap.bitmapOf(brdTrajInCell.filter({ case (_, transaction) =>
+      val iterator = itemset.getIntIterator
+      var isOk = true
+      while (iterator.hasNext && isOk) {
+        isOk = transaction.contains(iterator.next())
+      }
+      isOk
+    }).keys.toSeq: _*)
+    val time5 = System.currentTimeMillis() - startTime
+    println(time5)
+
     print("Sol hybrid... ")
     startTime = System.currentTimeMillis()
     val res3 = RoaringBitmap.bitmapOf(brdTrajInCell.filter({ case (_, transaction) =>
@@ -58,6 +77,21 @@ class TrajFlowTest extends JUnitSuite {
     val time3 = System.currentTimeMillis() - startTime
     println(time3)
 
+    print("Sol hybrid array... ")
+    startTime = System.currentTimeMillis()
+    val res4 = RoaringBitmap.bitmapOf(brdTrajInCell.filter({ case (_, transaction) =>
+      val xs = itemset.toArray
+      var isOk = true
+      var idx = 0
+      while (isOk && idx < xs.length) {
+        isOk = transaction.contains(xs(idx))
+        idx += 1
+      }
+      isOk
+    }).keys.toSeq: _*)
+    val time4 = System.currentTimeMillis() - startTime
+    println(time4)
+
     print("Sol and... ")
     startTime = System.currentTimeMillis()
     val len = itemset.getCardinality
@@ -65,14 +99,11 @@ class TrajFlowTest extends JUnitSuite {
     val time1 = System.currentTimeMillis() - startTime
     println(time1)
 
-    print("Sol andnot... ")
-    startTime = System.currentTimeMillis()
-    val res2 = RoaringBitmap.bitmapOf(brdTrajInCell.filter({ case (_, transaction) => RoaringBitmap.andNot(itemset, transaction).isEmpty }).keys.toSeq: _*)
-    val time2 = System.currentTimeMillis() - startTime
-    println(time2)
+
 
     require(res1.equals(res2))
     require(res2.equals(res3))
+    require(res2.equals(res4))
   }
 
   @Test def roaringPerformance2: Unit = {
@@ -84,7 +115,7 @@ class TrajFlowTest extends JUnitSuite {
       r.toArray.filter(_ >= k).zipWithIndex.takeWhile(x => x._1 - k == x._2).maxBy(_._1)._1.toShort
     }
 
-    assertTrue(Vector(Vector()).flatMap(x => x).isEmpty)
+    assertTrue(Vector(Vector()).flatten.isEmpty)
     assertEquals(RoaringBitmap.bitmapOf(9), RoaringBitmap.andNot(RoaringBitmap.bitmapOf(7, 8, 9), a))
     assertEquals(3, (0 to 10).take(3).length)
     assertEquals(3, (0 to 10).take(Vector(1, 2, 3).size).length)

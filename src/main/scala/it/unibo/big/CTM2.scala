@@ -62,7 +62,7 @@ object CTM2 {
       val res = RoaringBitmap.bitmapOf()
       brdTrajInCell.value.foreach({ case (tid, transaction) =>
         if (prevSupport.isEmpty || !prevSupport.get.contains(tid)) {
-          val iterator = itemset.iterator()
+          val iterator = itemset.getIntIterator
           var isOk = true
           while (isOk && iterator.hasNext) {
             isOk = transaction.contains(iterator.next())
@@ -202,7 +202,8 @@ object CTM2 {
               val conncomp = connectedComponent(R, RoaringBitmap.or(XplusY, R), isPlatoon = false, returnComponents = true)
               // R.toArray()
               if (conncomp._1 >= minsup) {
-                RoaringBitmap.and(R, conncomp._2).forEach(toJavaConsumer({ key: Integer => {
+                R = RoaringBitmap.and(R, conncomp._2)
+                R.forEach(toJavaConsumer({ key: Integer => {
                   val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // new co-movement pattern
                   R = RoaringBitmap.remove(R, key, key + 1) // reduce the search space
                   val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1) // update the current support
