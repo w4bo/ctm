@@ -109,7 +109,7 @@ object Utils {
   /** Clarify if the data is an item (i.e., a trajectory id). */
   type Itemid = Int
   /**  Define a carpenter row set data type. */
-  type CarpenterRowSet = (RoaringBitmap, Boolean, RoaringBitmap, RoaringBitmap)
+  type CarpenterRowSet = (RoaringBitmap, Boolean, RoaringBitmap, RoaringBitmap, RoaringBitmap) // itemset, extend, X, R, truesupport
 
   object MyMath {
     def roundAt(n: Double, pos: Int): Double = {

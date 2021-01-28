@@ -1,16 +1,15 @@
 package it.unibo.big
 
-import java.text.SimpleDateFormat
-import java.util.Calendar
 import it.unibo.big.CTM._
 import it.unibo.big.Utils._
-import org.apache.hadoop.hbase.protobuf.generated.HBaseProtos.UUID
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import org.roaringbitmap.RoaringBitmap
 
+import java.text.SimpleDateFormat
+import java.util.Calendar
 import scala.collection.mutable
 
 object CTM2 {
@@ -78,33 +77,44 @@ object CTM2 {
       res
     }
 
-    def connectedComponent(support: RoaringBitmap, isPlatoon: Boolean): Int = {
-      if (brdNeighborhood.isEmpty) { return support.getCardinality }
-      var c = 0
-      var isValidPlatoon = true
+    def connectedComponent(sp: RoaringBitmap, supp: RoaringBitmap, isPlatoon: Boolean, returnComponents: Boolean): (Int, RoaringBitmap) = {
+      if (brdNeighborhood.isEmpty) { return (supp.getCardinality, supp) }
+      var c = 0 // size of the connected component
+      var isValidPlatoon = true // whether this is a valid platton
       val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
-      support.forEach(toJavaConsumer({ tile: Integer => { // for each tile in the support
-        if ((!isPlatoon && c < minsup || isPlatoon && isValidPlatoon) && !marked.contains(tile)) { // if a connected component of at least minsup has not been found && the tile has been not visited yet
-          c = 0 // reset the number of consecutive adjacent tiles
+      var cc: RoaringBitmap = RoaringBitmap.bitmapOf() // current connected component
+      val ccs: RoaringBitmap = RoaringBitmap.bitmapOf() // components accumulator
+      var maxc = if (isPlatoon) Int.MaxValue else Int.MinValue
+      sp.forEach(toJavaConsumer({ tile: Integer => { // for each tile in the support
+        if ( // if a connected component of at least minsup has not been found && the tile has been not visited yet
+          (returnResult && (!isPlatoon || isValidPlatoon) || // to return the result, I cannot stop to minsup
+            !returnResult && (!isPlatoon && c < minsup || isPlatoon && isValidPlatoon)) && !marked.contains(tile)
+        ) {
+          // reset the connected component
+          c = 0
+          cc = RoaringBitmap.bitmapOf()
           def connectedComponentRec(i: Int): Unit = { // recursive function
             marked += i // add the tile to the explored set
-            c += 1 // increase the number of adjacent tile
+            c += 1 // increase the number of adjacent tiles
+            if (returnResult) { cc.add(i) } // add the adjacent tile
             // for each neighbor of the current tile, if the neighbor is in the cluster support and it has been not explored yet ...
             val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
             // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
             if (neighborhood.isDefined) {
-              neighborhood.get.forEach(toJavaConsumer(i => if (c < minsup && support.contains(i) && !marked.contains(i)) {
+              neighborhood.get.forEach(toJavaConsumer(i =>
+                if ((returnResult || c < minsup) && !marked.contains(i) && supp.contains(i)) {
                 connectedComponentRec(i)
               }))
             }
           }
-
           connectedComponentRec(tile)
           isValidPlatoon = c >= minsup
+          // add the connected component if big enough
+          maxc = if (isPlatoon) Math.min(c, maxc) else Math.max(c, maxc)
+          if (returnResult && c >= minsup) { ccs.or(cc) }
         }
-      }
-      }))
-      c
+      }}))
+      (maxc, ccs)
     }
 
     /**
@@ -119,9 +129,8 @@ object CTM2 {
      * @param r       a set containing all possible cellset to be added to x.
      * @return true if the trajectory set is on its maximal path and has good size and support, false otherwise.
      */
-    def filterCluster(cluster: RoaringBitmap, x: RoaringBitmap, r: RoaringBitmap, prevSupport: Option[RoaringBitmap] = None): Boolean = {
+    def filterCluster(cluster: RoaringBitmap, x: RoaringBitmap, r: RoaringBitmap, trueSupport: RoaringBitmap): Boolean = {
       var flag: Boolean = cluster.getCardinality >= minsize && (x.getCardinality + r.getCardinality) >= minsup
-      val trueSupport = support(cluster, prevSupport) // get the support
       /* check if it is in the shortest path (i.e., contains the first location, and (sup \setminus r \setminus x) is empty */
       flag = flag && x.contains(trueSupport.getIntIterator.next()) &&
         // RoaringBitmap.andNot(RoaringBitmap.andNot(trueSupport, r), x).isEmpty
@@ -134,8 +143,8 @@ object CTM2 {
       if (flag || brdNeighborhood.isEmpty) {
         return flag
       }
-      val c = connectedComponent(support, isPlatoon) // consecutive adjacent tiles
-      c < minsup
+      val c = connectedComponent(support, support, isPlatoon = isPlatoon, returnComponents = false) // consecutive adjacent tiles
+      c._1 < minsup
     }
 
     /* *****************************************************************************************************************
@@ -156,9 +165,9 @@ object CTM2 {
         .flatMap({ case (key: Tid, lCluster: RoaringBitmap) => // Now this is a Real TT' as intended by John Carpenter itself
           val X: RoaringBitmap = RoaringBitmap.bitmapOf(key) // current support
           val R: RoaringBitmap = RoaringBitmap.bitmapOf(brdTrajInCell.value.filter({ case (otherKey: Tid, _: RoaringBitmap) => key < otherKey }).toArray.map(_._1.toInt): _*) // select only the new cells
-          Array((lCluster, true, X, R))
+          Array((lCluster, true, X, R, support(lCluster)))
         })
-        .filter({ case (i: RoaringBitmap, extend: Boolean, cs: RoaringBitmap, sp: RoaringBitmap) => filterCluster(i, cs, sp) })
+        .filter({ case (i: RoaringBitmap, extend: Boolean, cs: RoaringBitmap, sp: RoaringBitmap, ts: RoaringBitmap) => filterCluster(i, cs, sp, ts) })
         .localCheckpoint()
     val clusterCount = clusters.count()
     println(s"\n--- Init clusters: $clusterCount")
@@ -176,36 +185,39 @@ object CTM2 {
       countToExtend.reset()
       clusters =
         (if (curIteration % repfreq == 0) { clusters.repartition(partitions) } else { clusters }) // Shuffle the data every few iterations
-          .flatMap({ case (lCluster: RoaringBitmap, extend: Boolean, x: RoaringBitmap, r: RoaringBitmap) =>
+          .flatMap({ case (lCluster: RoaringBitmap, extend: Boolean, x: RoaringBitmap, r: RoaringBitmap, lClusterSupport: RoaringBitmap) =>
             // require(!RoaringBitmap.intersects(x, r), s"$x intersects $r")
             if (extend) { // If the cluster should be extended...
-              val lClusterSupport = support(lCluster) // store the current itemset support
               var L: Array[CarpenterRowSet] = Array() // accumulator
               // cannot check this after connectedComponent(RoaringBitmap.or(XplusY, R)), otherwise platoon fails
-              if (!toExtend(lClusterSupport)) { // if is a valid co-movement pattern...  && filterCluster(lCluster, XplusY, R, Some(lClusterSupport))
+              if (!toExtend(lClusterSupport)) { // if is a valid co-movement pattern...
                 countOk.add(1) // update the counter
                 countToExtend.add(-1) // decrease the counter to extend to avoid double counting (since later L.size will contain this pattern)
-                L +:= (lCluster, false, empty, empty)
+                L +:= (lCluster, false, empty, empty, empty)
               }
               val Y: RoaringBitmap = RoaringBitmap.and(lClusterSupport, r) // tiles shared by all transactions
               val XplusY: RoaringBitmap = RoaringBitmap.or(x, Y) // ... are directly added to the current support
               var R: RoaringBitmap = RoaringBitmap.and(RoaringBitmap.andNot(r, Y), allCellsInTrajectories(lCluster)) // ... and removed from the search space
               // if at least a connected component exists
-              if (connectedComponent(RoaringBitmap.or(XplusY, R), isPlatoon = false) >= minsup) {
-                R.toArray.foreach({ key: Tid => {
+              val conncomp = connectedComponent(R, RoaringBitmap.or(XplusY, R), isPlatoon = false, returnComponents = true)
+              // R.toArray()
+              if (conncomp._1 >= minsup) {
+                RoaringBitmap.and(R, conncomp._2).forEach(toJavaConsumer({ key: Integer => {
                   val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // new co-movement pattern
                   R = RoaringBitmap.remove(R, key, key + 1) // reduce the search space
                   val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1) // update the current support
-                  if (filterCluster(c, XplusYplusKey, R, Some(lClusterSupport))) { // if is *potentially* a valid co-movement pattern...
-                    L +:= (c, true, XplusYplusKey, R) // ... store it
+                  val newClusterSupport = support(c, Some(lClusterSupport))
+                  if (filterCluster(c, XplusYplusKey, R, newClusterSupport)) { // if is *potentially* a valid co-movement pattern...
+                    L +:= (c, true, XplusYplusKey, R, newClusterSupport) // ... store it
                   }
-                }})
+                }
+                }))
                 countToExtend.add(L.length)
               }
               L
             } else {
               if (!lCluster.hasRunCompression) lCluster.runOptimize()
-              Array((lCluster, extend, x, r))
+              Array((lCluster, extend, x, r, lClusterSupport))
             }
           })
           .persist(StorageLevel.MEMORY_AND_DISK_SER) // .localCheckpoint()
@@ -223,8 +235,8 @@ object CTM2 {
         if (storage_thr > 0) {
           println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Writing itemsets to the database")
           val towrite: RDD[(Int, RoaringBitmap, RoaringBitmap)] = clusters
-            .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => !extend })
-            .map(cluster => (cluster._1.hashCode(), cluster._1, support(cluster._1)))
+            .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => !extend })
+            .map(cluster => (cluster._1.hashCode(), cluster._1, cluster._5))
             .cache()
 
           towrite
@@ -250,7 +262,7 @@ object CTM2 {
           println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Done writing")
         }
         countStored += nItemsets - countStored
-        clusters = clusters.filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => extend })
+        clusters = clusters.filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => extend })
       }
       // Remove useless checkpoints from memory
       spark.sparkContext.getPersistentRDDs.keys.toVector.sorted.dropRight(1).foreach(id => spark.sparkContext.getPersistentRDDs(id).unpersist(true))
@@ -263,7 +275,7 @@ object CTM2 {
       } else {
         clusters
           // .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap) => !extend }) // This filter is mandatory to obtain only the interesting cells
-          .map({ case (i: RoaringBitmap, _: Boolean, _: RoaringBitmap, _: RoaringBitmap) => Array[(RoaringBitmap, Int, Int)]((i, i.getCardinality, support(i).getCardinality)) })
+          .map({ case (i: RoaringBitmap, _: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => Array[(RoaringBitmap, Int, Int)]((i, i.getCardinality, support(i).getCardinality)) })
           .fold(Array.empty[(RoaringBitmap, Int, Int)])(_ ++ _)
       }
     writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, unit_t, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum)
