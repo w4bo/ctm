@@ -33,7 +33,7 @@ object Query {
             .sql(sql)
             .write
             .format("com.databricks.spark.csv")
-            .save(s"file://~/ctm/$inTable-$minsize-$minsup-${bin_s}.csv")
+            .save(s"file:///home/mfrancia/ctm/$inTable-$minsize-$minsup-${bin_s}.csv")
     }
 
     /**
