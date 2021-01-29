@@ -31,9 +31,10 @@ object Query {
         print(sql)
         sparkSession
             .sql(sql)
+            .repartition(1)
             .write
             .format("com.databricks.spark.csv")
-            .save(s"file:///home/mfrancia/ctm/$inTable-$minsize-$minsup-${bin_s}.csv")
+            .save(s"file:///home/mfrancia/ctm/resources/$inTable-$minsize-$minsup-${bin_s}")
     }
 
     /**
