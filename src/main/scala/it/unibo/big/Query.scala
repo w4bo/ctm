@@ -11,8 +11,6 @@ object Query {
      * @param bin_s   bin_s \in N (1, ..., n). Multiply cell size 123m x bin_s
      */
     def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int): Unit = {
-        println(s"hive -e 'set hive.cli.print.header=true; use ctm; select itemsetid, itemid, tid, userid, trajectoryid, timestamp, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support ")
-        println(s"from join__${inTable}__${minsize}__${minsup}__${bin_s}' | sed 's/[\t]/,/g'  > join__${inTable}__${minsize}__${minsup}__${bin_s}.csv")
         val sparkSession = SparkSession.builder().appName("Query trajectory").master("yarn").enableHiveSupport.getOrCreate
         val sql =
             s"""select i.itemsetid, t.itemid, t.tid, s.userid, s.trajectoryid, s.`timestamp`, s.latitude, s.longitude, t.latitude as bin_latitude, t.longitude as bin_longitude, t.time_bucket * 3600 as bin_timestamp, u.tileid as in_support
@@ -29,9 +27,9 @@ object Query {
         sparkSession.sql(sql).write.mode(SaveMode.Overwrite).saveAsTable(s"join__${inTable}__${minsize}__${minsup}__${bin_s}")
         // .format("com.databricks.spark.csv")
         // .save(s"file:///home/mfrancia/ctm/resources/$inTable-$minsize-$minsup-${bin_s}")
-        println(s"hive -e 'set hive.cli.print.header=true; use ctm; select itemsetid, itemid, tid, userid, trajectoryid, timestamp, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support ")
+        println(s"hive -e 'set hive.cli.print.header=true; use ctm; select itemsetid, itemid, tid, userid, trajectoryid, `timestamp`, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support ")
         println(s"from join__${inTable}__${minsize}__${minsup}__${bin_s}' | sed 's/[\t]/,/g'  > join__${inTable}__${minsize}__${minsup}__${bin_s}.csv")
-        new ProcessBuilder("hive -e 'set hive.cli.print.header=true; use ctm; select itemsetid, itemid, tid, userid, trajectoryid, timestamp, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support from join__${inTable}__${minsize}__${minsup}__${bin_s}' | sed 's/[\\t]/,/g'  > join__${inTable}__${minsize}__${minsup}__${bin_s}.csv").start
+        new ProcessBuilder(s"hive -e 'set hive.cli.print.header=true; use ctm; select itemsetid, itemid, tid, userid, trajectoryid, `timestamp`, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support from join__${inTable}__${minsize}__${minsup}__${bin_s}' | sed 's/[\\t]/,/g' > join__${inTable}__${minsize}__${minsup}__${bin_s}.csv").start().waitFor()
     }
 
     /**
