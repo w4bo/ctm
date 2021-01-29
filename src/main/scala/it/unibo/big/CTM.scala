@@ -19,6 +19,7 @@ object CTM {
   var partitions: Int = _
   var inTable: String = _
   var conf: String = _
+  var summaryTable: String = _
   var itemsetTable: String = _
   var supportTable: String = _
   var outTable2: String = _
@@ -105,6 +106,7 @@ object CTM {
         s"-epst_${if (eps_t.isInfinite) eps_t.toString else eps_t.toInt}" +
         s"-freq_${repfreq}" +
         s"-sthr_${storage_thr}"
+    summaryTable = conf.replace("-", "__") + "__summary"
     itemsetTable = conf.replace("-", "__") + "__itemset"
     supportTable = conf.replace("-", "__") + "__support"
     outTable2 = s"results/CTM_stats.csv"
