@@ -25,7 +25,7 @@ object Query {
                |""".stripMargin
         print(sql)
         sparkSession.sql("use ctm")
-        sparkSession.sql(sql).write.mode(SaveMode.Overwrite).saveAsTable(s"$inTable-$minsize-$minsup-${bin_s}")
+        sparkSession.sql(sql).write.mode(SaveMode.Overwrite).saveAsTable(s"join__${inTable}__${minsize}__${minsup}__${bin_s}")
         // .format("com.databricks.spark.csv")
         // .save(s"file:///home/mfrancia/ctm/resources/$inTable-$minsize-$minsup-${bin_s}")
     }
