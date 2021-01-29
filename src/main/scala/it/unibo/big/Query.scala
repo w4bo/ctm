@@ -14,9 +14,9 @@ object Query {
         val sparkSession = SparkSession.builder().appName("Query trajectory").master("yarn").enableHiveSupport.getOrCreate
         val sql =
             s"""select i.itemsetid, t.itemid, t.tid, s.userid, s.trajectoryid, s.`timestamp`, s.latitude, s.longitude, t.latitude as bin_latitude, t.longitude as bin_longitude, t.time_bucket * 3600 as bin_timestamp, u.tileid as in_support
-               |from      (select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__summary order by 2 desc limit 10) a
+               |from (select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__summary order by 2 desc limit 10) a
                |     join ctm.CTM__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__itemset i on (a.itemsetid = i.itemsetid)
-               |     join ctm.tmp_transactiontable__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600 t on (i.itemid = a.itemid)
+               |     join ctm.tmp_transactiontable__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600 t on (t.itemid = i.itemid)
                |     join trajectory.${inTable} s on (t.userid = s.userid
                |         and t.trajectoryid = s.trajectoryid and cast(`timestamp` / 3600 as int) = t.time_bucket
                |         and round(round(s.latitude  / (11 * ${bin_s}), 4) * (11 * ${bin_s}), 4) = t.latitude
