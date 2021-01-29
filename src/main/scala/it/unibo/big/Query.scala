@@ -1,6 +1,6 @@
 package it.unibo.big
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SaveMode, SparkSession}
 
 /** This is the main class of the project */
 object Query {
@@ -11,12 +11,7 @@ object Query {
      * @param bin_s   bin_s \in N (1, ..., n). Multiply cell size 123m x bin_s
      */
     def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int): Unit = {
-        val sparkSession =
-            SparkSession.builder()
-                .appName("Query trajectory")
-                .master("yarn")
-                .enableHiveSupport
-                .getOrCreate
+        val sparkSession = SparkSession.builder().appName("Query trajectory").master("yarn").enableHiveSupport.getOrCreate
 
         val sql =
             s"""select i.itemsetid, t.itemid, t.tid, s.userid, s.trajectoryid, s.`timestamp`, s.latitude, s.longitude, t.latitude as bin_latitude, t.longitude as bin_longitude, t.time_bucket * 3600 as bin_timestamp, u.tileid as in_support
@@ -29,12 +24,10 @@ object Query {
                |     left join ctm.CTM__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__support u on (t.tid = u.tileid)
                |""".stripMargin
         print(sql)
-        sparkSession
-            .sql(sql)
-            .repartition(1)
-            .write
-            .format("com.databricks.spark.csv")
-            .save(s"file:///home/mfrancia/ctm/resources/$inTable-$minsize-$minsup-${bin_s}")
+        sparkSession.sql("use ctm")
+        sparkSession.sql(sql).write.mode(SaveMode.Overwrite).saveAsTable(s"$inTable-$minsize-$minsup-${bin_s}")
+        // .format("com.databricks.spark.csv")
+        // .save(s"file:///home/mfrancia/ctm/resources/$inTable-$minsize-$minsup-${bin_s}")
     }
 
     /**
