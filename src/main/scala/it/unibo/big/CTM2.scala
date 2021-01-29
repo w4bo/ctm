@@ -4,7 +4,7 @@ import it.unibo.big.CTM._
 import it.unibo.big.Utils._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import org.roaringbitmap.RoaringBitmap
 
@@ -13,32 +13,7 @@ import java.util.Calendar
 import scala.collection.mutable
 
 object CTM2 {
-    var brdTrajInCell: Broadcast[Map[Tid, RoaringBitmap]] = _
 
-    /**
-     * Given a set of trajectoryIDs, create a bitmap containing all the common cells between all the Trajectories.
-     *
-     * @param itemset a set of trajectoryIDs.
-     * @return a Bitmap containing all the cells common to all the trajectories specified by the input.
-     */
-    def support(itemset: RoaringBitmap, prevSupport: Option[RoaringBitmap] = None): RoaringBitmap = {
-        val res = RoaringBitmap.bitmapOf()
-        brdTrajInCell.value.foreach({ case (tid, transaction) =>
-            if (prevSupport.isEmpty || !prevSupport.get.contains(tid)) {
-                val iterator = itemset.getIntIterator
-                var isOk = true
-                while (isOk && iterator.hasNext) {
-                    isOk = transaction.contains(iterator.next())
-                }
-                if (isOk) {
-                    res.add(tid)
-                }
-            } else {
-                res.add(tid)
-            }
-        })
-        res
-    }
 
     def CTM(spark: SparkSession, trans: RDD[(Tid, Itemid)], brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], minsup: Int, minsize: Int, isPlatoon: Boolean): (Long, Array[(RoaringBitmap, Tid, Tid)]) = {
         if (trans.count() == 0) {
@@ -50,7 +25,7 @@ object CTM2 {
          * Also use RoaringbitMap for performance reason
          * ****************************************************************************************************************/
         // print("--- Broadcasting brdTrajInCell (i.e., itemInTid)... ")
-        brdTrajInCell = spark.sparkContext.broadcast(
+        val brdTrajInCell: Broadcast[Map[Tid, RoaringBitmap]] = spark.sparkContext.broadcast(
             trans
                 .mapValues({ itemid: Itemid => RoaringBitmap.bitmapOf(itemid) })
                 .reduceByKey((anItem, anotherItem) => {
@@ -80,6 +55,30 @@ object CTM2 {
             RoaringBitmap.bitmapOf(brdTrajInCell.value.filter({ case (_, transaction) => RoaringBitmap.intersects(itemset, transaction) }).keys.toSeq: _*)
         }
 
+        /**
+         * Given a set of trajectoryIDs, create a bitmap containing all the common cells between all the Trajectories.
+         *
+         * @param itemset a set of trajectoryIDs.
+         * @return a Bitmap containing all the cells common to all the trajectories specified by the input.
+         */
+        def support(itemset: RoaringBitmap, prevSupport: Option[RoaringBitmap] = None): RoaringBitmap = {
+            val res = RoaringBitmap.bitmapOf()
+            brdTrajInCell.value.foreach({ case (tid, transaction) =>
+                if (prevSupport.isEmpty || !prevSupport.get.contains(tid)) {
+                    val iterator = itemset.getIntIterator
+                    var isOk = true
+                    while (isOk && iterator.hasNext) {
+                        isOk = transaction.contains(iterator.next())
+                    }
+                    if (isOk) {
+                        res.add(tid)
+                    }
+                } else {
+                    res.add(tid)
+                }
+            })
+            res
+        }
 
         def connectedComponent(sp: RoaringBitmap, supp: RoaringBitmap, isPlatoon: Boolean, returnComponents: Boolean): (Int, RoaringBitmap) = {
             if (brdNeighborhood.isEmpty) {
@@ -251,7 +250,41 @@ object CTM2 {
             if (!returnResult && (countToExtend.value == 0 || nItemsets - countStored >= storage_thr)) {
                 if (storage_thr > 0) {
                     println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Writing itemsets to the database")
-                    store(spark, clusters, countStored)
+                    import spark.implicits._
+                    val towrite: RDD[(Int, RoaringBitmap)] = clusters
+                        .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => !extend })
+                        .map(cluster => (cluster._1.hashCode(), cluster._1))
+                        .cache()
+
+                    towrite
+                        .map({ case (uid: Int, itemset: RoaringBitmap) =>
+                            (uid, itemset.getCardinality, support(itemset, Option.empty).getCardinality)
+                        })
+                        .toDF("itemsetid", "size", "support")
+                        .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(summaryTable)
+                    require(!spark.sql(s"select * from $summaryTable").isEmpty, s"Empty $summaryTable")
+
+                    towrite
+                        .flatMap({ case (uid: Int, itemset: RoaringBitmap) =>
+                            itemset.toArray.map(i => {
+                                require(i >= 0, "itemid is below zero")
+                                (uid, i)
+                            })
+                        })
+                        .toDF("itemsetid", "itemid")
+                        .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(itemsetTable)
+                    require(!spark.sql(s"select * from $itemsetTable").isEmpty, s"Empty $itemsetTable")
+
+                    towrite
+                        .flatMap({ case (uid: Int, itemset: RoaringBitmap) =>
+                            support(itemset, Option.empty).toArray.map(i => {
+                                require(i >= 0, "tileid is below zero")
+                                (uid, i)
+                            })
+                        })
+                        .toDF("itemsetid", "tileid")
+                        .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(supportTable)
+                    require(!spark.sql(s"select * from $supportTable").isEmpty, s"Empty $supportTable")
                     println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Done writing")
                 }
                 countStored += nItemsets - countStored

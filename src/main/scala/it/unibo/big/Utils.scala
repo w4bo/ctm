@@ -235,42 +235,4 @@ object Utils {
             .config("spark.sql.legacy.allowCreatingManagedTableUsingNonemptyLocation", "true")
             .enableHiveSupport
             .getOrCreate
-
-    def store(spark: SparkSession, clusters: RDD[CarpenterRowSet], countStored: Long): Unit = {
-        import spark.implicits._
-        val towrite: RDD[(Int, RoaringBitmap)] = clusters
-            .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => !extend })
-            .map(cluster => (cluster._1.hashCode(), cluster._1))
-            .cache()
-
-        towrite
-            .map({ case (uid: Int, itemset: RoaringBitmap) =>
-                (uid, itemset.getCardinality, support(itemset, Option.empty).getCardinality)
-            })
-            .toDF("itemsetid", "size", "support")
-            .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(summaryTable)
-        require(!spark.sql(s"select * from $summaryTable").isEmpty, s"Empty $summaryTable")
-
-        towrite
-            .flatMap({ case (uid: Int, itemset: RoaringBitmap) =>
-                itemset.toArray.map(i => {
-                    require(i >= 0, "itemid is below zero")
-                    (uid, i)
-                })
-            })
-            .toDF("itemsetid", "itemid")
-            .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(itemsetTable)
-        require(!spark.sql(s"select * from $itemsetTable").isEmpty, s"Empty $itemsetTable")
-
-        towrite
-            .flatMap({ case (uid: Int, itemset: RoaringBitmap) =>
-                support(itemset, Option.empty).toArray.map(i => {
-                    require(i >= 0, "tileid is below zero")
-                    (uid, i)
-                })
-            })
-            .toDF("itemsetid", "tileid")
-            .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(supportTable)
-        require(!spark.sql(s"select * from $supportTable").isEmpty, s"Empty $supportTable")
-    }
 }
