@@ -31,6 +31,7 @@ object Query {
         // .save(s"file:///home/mfrancia/ctm/resources/$inTable-$minsize-$minsup-${bin_s}")
         println(s"hive -e 'set hive.cli.print.header=true; use ctm; select itemsetid, itemid, tid, userid, trajectoryid, timestamp, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support ")
         println(s"from join__${inTable}__${minsize}__${minsup}__${bin_s}' | sed 's/[\t]/,/g'  > join__${inTable}__${minsize}__${minsup}__${bin_s}.csv")
+        new ProcessBuilder("hive -e 'set hive.cli.print.header=true; use ctm; select itemsetid, itemid, tid, userid, trajectoryid, timestamp, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support from join__${inTable}__${minsize}__${minsup}__${bin_s}' | sed 's/[\\t]/,/g'  > join__${inTable}__${minsize}__${minsup}__${bin_s}.csv").start
     }
 
     /**
