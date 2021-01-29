@@ -20,13 +20,13 @@ object Query {
 
         val sql =
             s"""select i.itemsetid, t.itemid, t.tid, s.userid, s.trajectoryid, s.`timestamp`, s.latitude, s.longitude, t.latitude as bin_latitude, t.longitude as bin_longitude, t.time_bucket * 3600 as bin_timestamp, u.tileid as in_support
-               |from    ctm.tmp_transactiontable__${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600 t
-               |     join (select * from ctm.CTM__${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__itemset order by support desc limit 10) i on (t.itemid = i.itemid)
+               |from    ctm.tmp_transactiontable__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600 t
+               |     join (select * from ctm.CTM__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__itemset order by support desc limit 10) i on (t.itemid = i.itemid)
                |     join trajectory.${inTable} s on (t.userid = s.userid
                |         and t.trajectoryid = s.trajectoryid and cast(`timestamp` / 3600 as int) = t.time_bucket
                |         and round(round(s.latitude  / (11 * ${bin_s}), 4) * (11 * ${bin_s}), 4) = t.latitude
                |         and round(round(s.longitude / (15 * ${bin_s}), 4) * (15 * ${bin_s}), 4) = t.longitude)
-               |     left join ctm.CTM__${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__support u on (t.tid = u.tileid)
+               |     left join ctm.CTM__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__support u on (t.tid = u.tileid)
                |""".stripMargin
         print(sql)
         sparkSession
