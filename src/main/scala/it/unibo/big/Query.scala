@@ -18,11 +18,11 @@ object Query {
                |     join ctm.CTM__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__itemset i on (a.itemsetid = i.itemsetid)
                |     join ctm.tmp_transactiontable__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600 t on (t.itemid = i.itemid)
                |     join trajectory.${inTable} s on (t.userid = s.userid
-               |         and t.trajectoryid = s.trajectoryid and cast(`timestamp` / 3600 as int) = t.time_bucket
+               |         and t.trajectoryid = s.trajectoryid
                |         and round(round(s.latitude  / (11 * ${bin_s}), 4) * (11 * ${bin_s}), 4) = t.latitude
                |         and round(round(s.longitude / (15 * ${bin_s}), 4) * (15 * ${bin_s}), 4) = t.longitude)
                |     left join ctm.CTM__tbl_${inTable}__lmt_10000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_notime__bint_1__unitt_3600__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__support u on (t.tid = u.tileid)
-               |""".stripMargin
+               |""".stripMargin //  and cast(s.`timestamp` / 3600 as int) = t.time_bucket
         print(sql)
         sparkSession.sql("use ctm")
         sparkSession.sql(sql).write.mode(SaveMode.Overwrite).saveAsTable(s"join__${inTable}__${minsize}__${minsup}__${bin_s}")
