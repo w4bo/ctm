@@ -17,9 +17,9 @@ object TestOnCluster {
   def main(args: Array[String]): Unit = {
     val dropTableFlag = true
     testFlockWithDifft()
+    testDB()
     testFlockDetectionFromPaper(dropTableFlag)
     testFlockDetectionFromPaperFail(dropTableFlag)
-    testDB()
     testAbsoluteContiguityClusters(dropTableFlag)
     testAbsoluteContiguityClustersNOResult(dropTableFlag)
     testSmootherContiguityClusters(dropTableFlag)
@@ -67,7 +67,7 @@ object TestOnCluster {
         "02\t0\t0\t2",
         "02\t0\t0\t3"
       )
-    val absoluteContiguityTableView = "simple_table_view"
+    val absoluteContiguityTableView = "testFlockWithDifft"
     dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
     var cuteClusters = CTM.run(
       droptable = true,

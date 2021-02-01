@@ -218,7 +218,8 @@ object CTM2 {
                             // R.toArray()
                             if (conncomp._1 >= minsup) {
                                 // R = RoaringBitmap.and(R, conncomp._2)
-                                RoaringBitmap.and(R, conncomp._2).forEach(toJavaConsumer({ key: Integer => {
+                                // RoaringBitmap.and(R, conncomp._2)
+                                R.forEach(toJavaConsumer({ key: Integer => {
                                     val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // new co-movement pattern
                                     R = RoaringBitmap.remove(R, key, key + 1) // reduce the search space
                                     val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1) // update the current support
