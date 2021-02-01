@@ -205,7 +205,8 @@ object CTM {
         //   Map()
         // }
     }
-    val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] = if (neighbors.nonEmpty) { Some(sparkSession.sparkContext.broadcast(neighbors)) } else { None }
+    val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] = Some(sparkSession.sparkContext.broadcast(neighbors))
+      // if (neighbors.nonEmpty) { Some(sparkSession.sparkContext.broadcast(neighbors)) } else { None }
 
     /** run the algorithm. */
     CTM2.CTM(sparkSession, trans, brdNeighborhood, minsup, minsize, platoon)
