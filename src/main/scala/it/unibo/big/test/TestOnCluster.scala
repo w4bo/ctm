@@ -16,6 +16,7 @@ object TestOnCluster {
    */
   def main(args: Array[String]): Unit = {
     val dropTableFlag = true
+    testFlockWithDifft()
     testFlockDetectionFromPaper(dropTableFlag)
     testFlockDetectionFromPaperFail(dropTableFlag)
     testDB()
