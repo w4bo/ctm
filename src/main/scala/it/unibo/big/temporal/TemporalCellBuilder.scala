@@ -196,7 +196,7 @@ object TemporalCellBuilder {
       case Some(tThreshold) => finalQuery += s"$TIME_DISTANCE_COLUMN_NAME <= $tThreshold"
       case _ =>
     }
-    if (!(finalQuery equals basicQuery)) {
+    //if (!(finalQuery equals basicQuery)) {
       spark
         .sql(finalQuery)
         .rdd
@@ -204,8 +204,8 @@ object TemporalCellBuilder {
         .reduceByKey(RoaringBitmap.or)
         .collect()
         .toMap
-    } else {
-      Map()
-    }
+    //} else {
+    //  Map()
+    //}
   }
 }

@@ -48,6 +48,58 @@ object TestOnCluster {
     require(res9._2.length < 2466, s"Test 9.e failed. Expected: < ${2466}, got: ${res9._1}") // this is because we store the itemsets in while generating them
   }
 
+
+  /**
+   * Test a pattern where the trajectories are in three near cells.
+   */
+  def testFlockWithDifft(): Unit = {
+    val absoluteContiguityInputSet: Array[String] =
+      Array(
+        "01\t0\t0\t1",
+        "01\t1\t1\t1",
+        "03\t1\t1\t1",
+        "01\t2\t2\t1",
+        "03\t2\t2\t1",
+        "01\t0\t0\t2",
+        "01\t0\t0\t3",
+        "02\t0\t0\t1",
+        "02\t0\t0\t2",
+        "02\t0\t0\t3"
+      )
+    val absoluteContiguityTableView = "simple_table_view"
+    dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
+    var cuteClusters = CTM.run(
+      droptable = true,
+      inTable = absoluteContiguityTableView,
+      minsize = 2,
+      minsup = 2,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      eps_t = 1,
+      difftime = true,
+      returnResult = true
+    )
+    var expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$testFlockWithDifft: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+
+    dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
+    cuteClusters = CTM.run(
+      droptable = true,
+      inTable = absoluteContiguityTableView,
+      minsize = 2,
+      minsup = 2,
+      bin_s = 1,
+      timeScale = AbsoluteScale,
+      bin_t = 1,
+      eps_t = 1,
+      difftime = false,
+      returnResult = true
+    )
+    expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3), (RoaringBitmap.bitmapOf(1, 2), 2, 2))
+    require(cuteClusters._2.toSet.equals(expectedClusters), s"$testFlockWithDifft: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+  }
+
   /**
    * Test a pattern where the trajectories are in three near cells.
    */
@@ -547,10 +599,14 @@ object TestOnCluster {
     val monday01AMStamp = 1578879141L
     val monday02AMStamp = 1578882741L
     val inputSet: Array[String] = Array( //
-      s"01\t0\t0\t$sunday10PMStamp", s"01\t0\t0\t$sunday11PMStamp", //
-      s"01\t0\t0\t$monday01AMStamp", s"01\t0\t0\t$monday02AMStamp", //
-      s"02\t0\t0\t$sunday10PMStamp", s"02\t0\t0\t$sunday11PMStamp", //
-      s"02\t0\t0\t$monday01AMStamp", s"02\t0\t0\t$monday02AMStamp")
+      s"01\t0\t0\t$sunday10PMStamp", //
+      s"01\t0\t0\t$sunday11PMStamp", //
+      s"01\t0\t0\t$monday01AMStamp", //
+      s"01\t0\t0\t$monday02AMStamp", //
+      s"02\t0\t0\t$sunday10PMStamp", //
+      s"02\t0\t0\t$sunday11PMStamp", //
+      s"02\t0\t0\t$monday01AMStamp", //
+      s"02\t0\t0\t$monday02AMStamp")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
     val cuteClusters = CTM.run(
