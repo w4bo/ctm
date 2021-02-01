@@ -14,7 +14,6 @@ import scala.collection.mutable
 
 object CTM2 {
 
-
     def CTM(spark: SparkSession, trans: RDD[(Tid, Itemid)], brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], minsup: Int, minsize: Int, isPlatoon: Boolean): (Long, Array[(RoaringBitmap, Tid, Tid)]) = {
         if (trans.count() == 0) {
             return (0, Array())

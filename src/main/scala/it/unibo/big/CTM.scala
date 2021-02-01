@@ -72,7 +72,7 @@ object CTM {
           bin_s: Int, eps_s: Double = Double.PositiveInfinity, // EFFECTIVENESS PARAMETERS
           debugData: Seq[(Tid, Vector[Itemid])] = Seq(), neighs: Map[Tid, RoaringBitmap] = Map(), spark: Option[SparkSession] = None, // INPUTS
           returnResult: Boolean = false,
-          droptable: Boolean = false, euclidean: Boolean = false): (Long, Array[(RoaringBitmap, Int, Int)]) = {
+          droptable: Boolean = false, euclidean: Boolean = false, difftime: Boolean = false): (Long, Array[(RoaringBitmap, Int, Int)]) = {
     this.inTable = inTable
     this.debug = debugData.nonEmpty
     this.returnResult = returnResult
@@ -98,6 +98,7 @@ object CTM {
         s"-sup_$minsup" +
         s"-bins_$bin_s" +
         s"-ts_${timeScale.value}" +
+        s"-difft_${difftime}" +
         s"-bint_$bin_t" +
         s"-unitt_$unit_t"
     conf = // Define the generic name for the run, including temporary table name
@@ -167,7 +168,7 @@ object CTM {
           // create the table with all neighbors for each cell
           if (!eps_s.isInfinite || !eps_t.isInfinite) {
             println(s"--- Generating $neighborhoodTable...")
-            createNeighborhood(sparkSession, cellToIDTable, neighborhoodTable, timeScale, euclidean)
+            createNeighborhood(sparkSession, cellToIDTable, neighborhoodTable, timeScale, euclidean, difftime)
             sparkSession.sql(s"select * from $neighborhoodTable limit $linesToPrint").show()
           }
         }
@@ -233,6 +234,7 @@ object CTM {
         maxram = conf.maxram(),
         storage_thr = conf.storagethr(),
         repfreq = conf.repfreq(),
+        difftime = conf.difftime(),
         limit = conf.limit().toInt,
         minsize = conf.minsize(),
         minsup = conf.minsup(),
@@ -268,6 +270,7 @@ class TemporalTrajectoryFlowConf(arguments: Seq[String]) extends ScallopConf(arg
   val epst = opt[Double]()
   val debug = opt[Boolean](required = true)
   val droptable = opt[Boolean]()
+  val difftime = opt[Boolean]()
   val returnresult = opt[Boolean]()
   verify()
 }

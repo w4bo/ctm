@@ -146,14 +146,14 @@ object TemporalCellBuilder {
    * @param temporalScale     the temporal scale that must be adopted.
    * @param euclidean         euclidean coordinates
    */
-  def createNeighborhood(spark: SparkSession, cellTableName: String, neighborhoodTable: String, temporalScale: TemporalScale, euclidean: Boolean): Unit = {
+  def createNeighborhood(spark: SparkSession, cellTableName: String, neighborhoodTable: String, temporalScale: TemporalScale, euclidean: Boolean, difftime: Boolean): Unit = {
     // ST_Distance(ST_Transform(ST_GeomFromWKT(concat('POINT(', t.longitude, ' ', t.latitude, ')')), \"epsg:4326\", \"epsg:3857\"), ST_Transform(ST_GeomFromWKT(concat('POINT(', n.longitude, ' ', n.latitude, ')')), \"epsg:4326\", \"epsg:3857\")) as $SPACE_DISTANCE_COLUMN_NAME,
     val query =
       s"""select t.tid, n.tid as neigh,
          |       t.$LATITUDE_FIELD_NAME as l1, t.$LONGITUDE_FIELD_NAME as l2, n.$LATITUDE_FIELD_NAME as l3, n.$LONGITUDE_FIELD_NAME as l4,
          |       t.$TIME_BUCKET_COLUMN_NAME as t1, n.$TIME_BUCKET_COLUMN_NAME as t2
          |from $cellTableName t, $cellTableName n
-         |where t.tid != n.tid
+         |where t.tid != n.tid ${if (difftime) s"and t.$TIME_BUCKET_COLUMN_NAME != n.$TIME_BUCKET_COLUMN_NAME " else ""}
         """.stripMargin
     val computeTimeDistanceFunction: (Int, Int) => Int = temporalScale match {
       case DailyScale => (t1, t2) => WeeklyHourTimeStamp.computeDailyDistance(t1, t2)
