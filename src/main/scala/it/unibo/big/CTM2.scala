@@ -84,7 +84,7 @@ object CTM2 {
                 return (supp.getCardinality, supp)
             }
             var c = 0 // size of the connected component
-            var isValidPlatoon = true // whether this is a valid platton
+            var isValidPlatoon = true // whether this is a valid platoon
             val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
             var cc: RoaringBitmap = RoaringBitmap.bitmapOf() // current connected component
             val ccs: RoaringBitmap = RoaringBitmap.bitmapOf() // components accumulator

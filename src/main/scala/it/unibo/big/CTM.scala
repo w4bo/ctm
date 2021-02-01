@@ -166,11 +166,11 @@ object CTM {
         }
         if (!sparkSession.catalog.tableExists(DB_NAME, neighborhoodTable)) {
           // create the table with all neighbors for each cell
-          if (!eps_s.isInfinite || !eps_t.isInfinite) {
-            println(s"--- Generating $neighborhoodTable...")
-            createNeighborhood(sparkSession, cellToIDTable, neighborhoodTable, timeScale, euclidean, difftime)
-            sparkSession.sql(s"select * from $neighborhoodTable limit $linesToPrint").show()
-          }
+          // if (!eps_s.isInfinite || !eps_t.isInfinite) {
+          println(s"--- Generating $neighborhoodTable...")
+          createNeighborhood(sparkSession, cellToIDTable, neighborhoodTable, timeScale, euclidean, difftime)
+          sparkSession.sql(s"select * from $neighborhoodTable limit $linesToPrint").show()
+          // }
         }
         require(sparkSession.catalog.tableExists(DB_NAME, transactionTable), s"$transactionTable does not exist")
         require(sparkSession.catalog.tableExists(DB_NAME, transactionTable), s"$cellToIDTable does not exist")
@@ -195,14 +195,15 @@ object CTM {
        * Define a neighborhood for each trajectoryID and broadcast it (only if a neighborhood metrics is defined).
        * Carpenter by default would not include this, thanks to this the algorithm will be able to use bounds on time and space
        * ************************************************************************************************************ */
-      neighbors =
-        if (!eps_s.isInfinite || !eps_t.isInfinite) {
+      neighbors = {
+        // if (!eps_s.isInfinite || !eps_t.isInfinite) {
           val spaceThreshold = if (eps_s.isInfinite) { None } else { Some(eps_s * bin_s * DEFAULT_CELL_SIDE) }
           val timeThreshold = if (eps_t.isInfinite) { None } else { Some(eps_t) }
           TemporalCellBuilder.broadcastNeighborhood(sparkSession, spaceThreshold, timeThreshold, neighborhoodTable)
-        } else {
-          Map()
-        }
+      }
+        // } else {
+        //   Map()
+        // }
     }
     val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] = if (neighbors.nonEmpty) { Some(sparkSession.sparkContext.broadcast(neighbors)) } else { None }
 
