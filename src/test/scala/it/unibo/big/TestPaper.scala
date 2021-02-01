@@ -135,7 +135,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (5, Vector(0, 2)),
       (6, Vector(2)))
     val res15 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data15, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res15._1 == 5, "Test 15 failed")
+    assert(res15._1 == 5, "Test 3 failed")
   }
 
   test("4") {
@@ -145,8 +145,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (3, Vector(2, 3, 4, 7)),
       (4, Vector(8, 9)))
     val res14 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 3, debugData = data14, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res14._1 == 1, "Test 14 failed")
-    assert(res14._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3, 4), 3, 3))), "Test 14 failed")
+    assert(res14._2.toSet.equals(Set((RoaringBitmap.bitmapOf(2, 3, 4), 3, 3))), "Test 4 failed")
   }
 
   test("5") {
@@ -155,8 +154,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (2, Vector(1, 2, 3)),
       (3, Vector(1, 2, 3)))
     val res12 = CTM.run(spark = Some(sparkSession), minsize = 1, minsup = 1, debugData = data12, bin_s = 1, timeScale = NoScale, returnResult = true)
-    assert(res12._1 == 1, "Test 12 failed")
-    assert(res12._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 3))), "Test 12 failed")
+    assert(res12._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 3))), "Test 5 failed")
   }
 
   test("6") {
