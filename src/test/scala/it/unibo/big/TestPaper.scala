@@ -85,7 +85,9 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
 
   def torelational(debugData: Seq[(Tid, Vector[Itemid])], filename: String): Unit = {
     val s = debugData
-        .flatMap(i => i._2.map(id => s"$id\t${Math.floor((i._1 - 1) / 7) * 11}\t${(i._1 - 1) % 7 * 15}\n"))
+        .flatMap(i => i._2.map(id => (id, ((i._1 - 1) / 7).toInt * 11, ((i._1 - 1) / 7).toInt * 15, (i._1 - 1) % 7)))
+        .sortBy(i => (i._1, i._4))
+        .map(i => s"${i._1}\t${i._2}\t${i._3}\t${i._4}\n")
         .reduce(_ + _)
     import java.io._
     val pw = new PrintWriter(new File(s"src/main/resources/$filename"))
