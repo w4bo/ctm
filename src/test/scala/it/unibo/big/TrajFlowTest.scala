@@ -39,7 +39,7 @@ class TrajFlowTest extends JUnitSuite {
   @Test def roaringPerformance3: Unit = {
     print("Init... ")
     val r: Random = new Random(1)
-    val brdTrajInCell: Map[Int, RoaringBitmap] = (1 to 20000).map(i => i -> RoaringBitmap.bitmapOf((1 to 5000).map(_ => r.nextInt(100000)).toArray: _*)).toMap
+    val brdTrajInCell: Map[Int, RoaringBitmap] = (1 to 20000).map(i => i -> RoaringBitmap.bitmapOf((1 to 5000).map(_ => r.nextInt(10000)).toArray: _*)).toMap
     println(" Done")
 
     val itemset = brdTrajInCell(r.nextInt(brdTrajInCell.size))
@@ -52,30 +52,38 @@ class TrajFlowTest extends JUnitSuite {
     println(time2)
 
     print("Sol hybrid 2... ")
+    var contains = 0
     startTime = System.currentTimeMillis()
     val res5 = RoaringBitmap.bitmapOf(brdTrajInCell.filter({ case (_, transaction) =>
       val iterator = itemset.getIntIterator
       var isOk = true
       while (iterator.hasNext && isOk) {
         isOk = transaction.contains(iterator.next())
+        contains += 1
       }
       isOk
     }).keys.toSeq: _*)
     val time5 = System.currentTimeMillis() - startTime
-    println(time5)
+    println(s"time: ${time5}, contains: $contains")
 
-    print("Sol hybrid... ")
-    startTime = System.currentTimeMillis()
-    val res3 = RoaringBitmap.bitmapOf(brdTrajInCell.filter({ case (_, transaction) =>
-      val iterator = itemset.iterator()
-      var isOk = true
-      while (iterator.hasNext && isOk) {
-        isOk = transaction.contains(iterator.next())
+    print("Sol hybrid 4... ")
+    contains = 0
+    def fun(): Seq[Int] = {
+      val iterator = itemset.getIntIterator
+      var toiterate = brdTrajInCell
+      while (iterator.hasNext) {
+        val currentTrajectory = iterator.next()
+        toiterate = toiterate.filter(t => {
+          contains += 1
+          t._2.contains(currentTrajectory)
+        })
       }
-      isOk
-    }).keys.toSeq: _*)
-    val time3 = System.currentTimeMillis() - startTime
-    println(time3)
+      toiterate.keys.toSeq
+    }
+    startTime = System.currentTimeMillis()
+    val res6 = RoaringBitmap.bitmapOf(fun(): _*)
+    val time6 = System.currentTimeMillis() - startTime
+    println(s"time: ${time6}, contains: $contains")
 
     print("Sol hybrid array... ")
     startTime = System.currentTimeMillis()
@@ -99,11 +107,10 @@ class TrajFlowTest extends JUnitSuite {
     val time1 = System.currentTimeMillis() - startTime
     println(time1)
 
-
-
     require(res1.equals(res2))
-    require(res2.equals(res3))
     require(res2.equals(res4))
+    require(res2.equals(res5))
+    require(res2.equals(res6))
   }
 
   @Test def roaringPerformance2: Unit = {

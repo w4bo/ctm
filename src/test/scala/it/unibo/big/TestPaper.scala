@@ -83,6 +83,16 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
     assert(neigh(3, 7, 1, Int.MaxValue, true)(10).getCardinality == 8, neigh(3, 7, 1, Int.MaxValue, true)(9).toString)
   }
 
+  def torelational(debugData: Seq[(Tid, Vector[Itemid])], filename: String): Unit = {
+    val s = debugData
+        .flatMap(i => i._2.map(id => s"$id\t${Math.floor((i._1 - 1) / 7) * 11}\t${(i._1 - 1) % 7 * 15}\n"))
+        .reduce(_ + _)
+    import java.io._
+    val pw = new PrintWriter(new File(s"src/main/resources/$filename"))
+    pw.write(s)
+    pw.close()
+  }
+
   test("1") {
     val data17: Seq[(Tid, Vector[Itemid])] = Vector(
       (1, Vector(0, 1, 2)),
@@ -223,7 +233,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       debugData = data,
       neighs = neigh(3, 7, Int.MaxValue, Int.MaxValue, true)
     )
-
+    torelational(data, "co-location.tsv")
     assert(res._1 == 1, "Test 10 failed")
     assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 2))), res._2.toString)
   }
@@ -246,6 +256,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (20, Vector(3)),
       (21, Vector(3))
     )
+    torelational(data, "flow.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 3,
@@ -276,6 +287,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (18, Vector(3)),
       (21, Vector(3))
     )
+    torelational(data, "swarm.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 3,
       minsup = 2,
@@ -302,6 +314,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (19, Vector(3)),
       (20, Vector(1, 2))
     )
+    torelational(data, "platoon.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 2,
@@ -325,6 +338,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (5, Vector(1, 2, 5)),
       (7, Vector(1, 2, 6))
     )
+    torelational(data, "platoon2.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 2,
@@ -347,6 +361,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (5, Vector(1, 2, 5)),
       (7, Vector(1, 6))
     )
+    torelational(data, "platoon3.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 2,
@@ -374,6 +389,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (19, Vector(3)),
       (20, Vector(1, 2))
     )
+    torelational(data, "platoonfail.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 3,
@@ -401,6 +417,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (19, Vector(3)),
       (20, Vector(1, 2))
     )
+    torelational(data, "flock.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 3,
@@ -427,6 +444,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (19, Vector(3)),
       (20, Vector(1, 2))
     )
+    torelational(data, "flockfail.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 4,
@@ -446,6 +464,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (2, Vector(1, 2, 4)),
       (3, Vector(1, 2, 3))
     )
+    torelational(data, "flock2.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 3,
