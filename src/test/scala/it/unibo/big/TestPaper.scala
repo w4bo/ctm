@@ -1,6 +1,6 @@
 package it.unibo.big
-
 import it.unibo.big.TemporalScale.{AbsoluteScale, NoScale}
+import it.unibo.big.TestPaper.{neigh, startSparkTestSession}
 import it.unibo.big.Utils.{Itemid, Tid}
 import org.apache.log4j.{Level, LogManager, Logger}
 import org.apache.spark.sql.SparkSession
@@ -10,16 +10,7 @@ import org.scalatest._
 
 import scala.collection.mutable
 
-class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll {
-
-  @transient var sparkSession: SparkSession = _
-
-  /*  Cell indexes withing the tessellation
-   *  1 -  2 -  3 -  4 -  5 -  6 -  7
-   *  8 -  9 - 10 - 11 - 12 - 13 - 14
-   * 15 - 16 - 17 - 18 - 19 - 20 - 21
-   */
-
+object TestPaper {
   /**
    * Create a Tessellation
    *
@@ -52,25 +43,48 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
     ret.toMap
   }
 
-  override def beforeAll(): Unit = {
-    sparkSession = SparkSession.builder()
-      .master("local[1]") // Delete this if run in cluster mode
-      .appName("TestPaper") // Change this to a proper name
-      .config("spark.broadcast.compress", "false")
-      .config("spark.shuffle.compress", "false")
-      .config("spark.shuffle.spill.compress", "false")
-      .config("spark.io.compression.codec", "lzf")
-      .getOrCreate()
-    GeoSparkSQLRegistrator.registerAll(sparkSession)
-    sparkSession.sparkContext.setLogLevel("ERROR")
+  def startSparkTestSession(): SparkSession = {
+    val session = SparkSession.builder()
+        .master("local[3]") // Delete this if run in cluster mode
+        .appName("TestPaper") // Change this to a proper name
+        .config("spark.broadcast.compress", "false")
+        .config("spark.shuffle.compress", "false")
+        .config("hive.metastore.uris", "thrift://137.204.72.75:9083")
+        .config("spark.hadoop.yarn.resourcemanager.hostname", "137.204.72.75")
+        .config("spark.hadoop.yarn.resourcemanager.address", "137.204.72.75:8032")
+        .config("spark.shuffle.spill.compress", "false")
+        .config("spark.io.compression.codec", "lzf")
+        .config("spark.sql.legacy.allowCreatingManagedTableUsingNonemptyLocation", "true")
+        .enableHiveSupport()
+        .getOrCreate()
+    GeoSparkSQLRegistrator.registerAll(session)
+    session.sparkContext.setLogLevel("ERROR")
     Logger.getLogger("org").setLevel(Level.ERROR)
     Logger.getLogger("akka").setLevel(Level.ERROR)
     LogManager.getRootLogger.setLevel(Level.ERROR)
+    session
+  }
+}
+
+class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll {
+
+  @transient var sparkSession: SparkSession = _
+
+  /*  Cell indexes withing the tessellation
+   *  1 -  2 -  3 -  4 -  5 -  6 -  7
+   *  8 -  9 - 10 - 11 - 12 - 13 - 14
+   * 15 - 16 - 17 - 18 - 19 - 20 - 21
+   */
+
+
+
+  override def beforeAll(): Unit = {
+    sparkSession = startSparkTestSession()
   }
 
-  override def afterAll(): Unit = {
-    sparkSession.sparkContext.stop()
-  }
+  //  override def afterAll(): Unit = {
+  //    sparkSession.sparkContext.stop()
+  //  }
 
   test("test neighborhood generation") {
     assert(neigh(3, 7, 1, 1, false)(1).getCardinality == 3, neigh(3, 7, 1, 1)(1).toString)

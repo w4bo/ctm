@@ -1,122 +1,46 @@
-package it.unibo.big.test
+package it.unibo.big
 
 import it.unibo.big.TemporalScale.{AbsoluteScale, DailyScale, NoScale, WeeklyScale}
-import it.unibo.big.{CTM, Utils}
+import it.unibo.big.test.TempTableLoader
 import org.apache.spark.sql.SparkSession
+import org.junit.Assert.{assertEquals, assertTrue}
 import org.roaringbitmap.RoaringBitmap
+import org.scalatest._
 
-object TestOnCluster {
+class TestOnCluster extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll {
+  @transient var sparkSession: SparkSession = _
 
-  @transient val sparkSession: SparkSession = Utils.startSparkSession()
-
-  /**
-   * Main of the whole application.
-   *
-   * @param args arguments
-   */
-  def main(args: Array[String]): Unit = {
-    val dropTableFlag = true
-    testFlockWithDifft()
-    testDB()
-    testFlockDetectionFromPaper(dropTableFlag)
-    testFlockDetectionFromPaperFail(dropTableFlag)
-    testAbsoluteContiguityClusters(dropTableFlag)
-    testAbsoluteContiguityClustersNOResult(dropTableFlag)
-    testSmootherContiguityClusters(dropTableFlag)
-    testAbsoluteContiguityClustersNOResult(dropTableFlag)
-    testExternalNeighbourClusters(dropTableFlag)
-    testExternalNeighbourInsideTheIDPathClusters(dropTableFlag)
-    testSmootherContiguityTwoThresholdClusters(dropTableFlag)
-    testTwoSplitsClusters(dropTableFlag)
-    testSwarmDetection(dropTableFlag)
-    testFlockDetection(dropTableFlag)
-    testGroupDetection(dropTableFlag)
-    testWeeklyContiguityData(dropTableFlag)
-    testWeeklySmootherContiguityClusters(dropTableFlag)
-    testWeeklyFlockClusters(dropTableFlag)
-    testWeeklySwarmClusters(dropTableFlag)
-  }
-
-  /** Alias for a cluster. */
   type cuteCluster = (RoaringBitmap, Int, Int)
-  val dataLoader = TempTableLoader()
+  val dataLoader: TempTableLoader = TempTableLoader()
 
-  def testDB(): Unit = {
-    var res9 = CTM.run(droptable = true, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
-    require(res9._2.length == 2466, s"Test 9.e failed. Expected: ${2466}, got: ${res9._1}")
-    res9 = CTM.run(droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
-    require(res9._1 == 2466, s"Test 9.e failed. Expected: ${2466}, got: ${res9._1}")
-    require(res9._2.length < 2466, s"Test 9.e failed. Expected: < ${2466}, got: ${res9._1}") // this is because we store the itemsets in while generating them
+  override def beforeAll(): Unit = {
+    sparkSession = TestPaper.startSparkTestSession()
   }
-
-
-  /**
-   * Test a pattern where the trajectories are in three near cells.
-   */
-  def testFlockWithDifft(): Unit = {
-    val absoluteContiguityInputSet: Array[String] =
-      Array(
-        "01\t0\t0\t1",
-        "01\t1\t1\t1",
-        "03\t1\t1\t1",
-        "01\t2\t2\t1",
-        "03\t2\t2\t1",
-        "01\t0\t0\t2",
-        "01\t0\t0\t3",
-        "02\t0\t0\t1",
-        "02\t0\t0\t2",
-        "02\t0\t0\t3"
-      )
-    val absoluteContiguityTableView = "testFlockWithDifft"
-    dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
-    var cuteClusters = CTM.run(
-      droptable = true,
-      inTable = absoluteContiguityTableView,
-      minsize = 2,
-      minsup = 2,
-      bin_s = 1,
-      timeScale = AbsoluteScale,
-      bin_t = 1,
-      eps_t = 1,
-      difftime = true,
-      returnResult = true
-    )
-    var expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$testFlockWithDifft: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
-
-    dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
-    cuteClusters = CTM.run(
-      droptable = true,
-      inTable = absoluteContiguityTableView,
-      minsize = 2,
-      minsup = 2,
-      bin_s = 1,
-      timeScale = AbsoluteScale,
-      bin_t = 1,
-      eps_t = 1,
-      difftime = false,
-      returnResult = true
-    )
-    expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3), (RoaringBitmap.bitmapOf(1, 2), 2, 2))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$testFlockWithDifft: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+  
+  test("testDB") {
+    var res9 = CTM.run(spark=Some(sparkSession), droptable = true, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
+    assertEquals(2466, res9._2.length)
+    res9 = CTM.run(spark=Some(sparkSession), droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
+    assertEquals(2466, res9._1)
+    assertTrue(2466 > res9._2.length)
   }
 
   /**
    * Test a pattern where the trajectories are in three near cells.
    */
-  def testAbsoluteContiguityClusters(dropTableFlag: Boolean): Unit = {
+  test("testAbsoluteContiguityClusters") {
     val test_name = "AbsoluteContiguityClusters"
     val absoluteContiguityInputSet: Array[String] =
       Array(
-        "01\t0\t0\t1",
-        "01\t0\t0\t2",
-        "01\t0\t0\t3",
-        "02\t0\t0\t1",
-        "02\t0\t0\t2",
+        "01\t0\t0\t1", //
+        "01\t0\t0\t2", //
+        "01\t0\t0\t3", //
+        "02\t0\t0\t1", //
+        "02\t0\t0\t2", //
         "02\t0\t0\t3")
     val absoluteContiguityTableView = "simple_table_view"
     dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
-    val cuteClusters = CTM.run(
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
       droptable = true,
       inTable = absoluteContiguityTableView,
       minsize = 2,
@@ -128,20 +52,21 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 
   /**
    * Test a pattern where the trajectories are in three contigued cells.
    */
-  def testAbsoluteContiguityClustersNOResult(dropTableFlag: Boolean): Unit = {
-    println("---- absolute contiguity no result test 1 temporal bucket size")
+  test("testAbsoluteContiguityClustersNOResult") {
+    // println("---- absolute contiguity no result test 1 temporal bucket size")
     val test_name = "AbsoluteContiguityClustersNOResult"
     val absoluteContiguityInputSet: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t3", "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4")
     val absoluteContiguityTableView = "simple_table_view_NOresult"
     dataLoader.loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
     val absoluteContiguityClusters = CTM.run(
-      droptable = dropTableFlag,
+      spark=Some(sparkSession),
+      droptable = true,
       inTable = absoluteContiguityTableView,
       minsize = 2,
       minsup = 3,
@@ -151,24 +76,24 @@ object TestOnCluster {
       eps_t = 1,
       returnResult = true
     )
-    require(absoluteContiguityClusters._2.isEmpty, s"$test_name expected empty, got ${absoluteContiguityClusters._2.toSet}")
+    assertTrue(absoluteContiguityClusters._2.isEmpty)
   }
 
   /**
    * Check that contiguity works also with relaxed time constrains
    */
-  def testSmootherContiguityClusters(dropTableFlag: Boolean): Unit = {
+  test("testSmootherContiguityClusters") {
     val test_name = "SMOOTHER_CONTIGUITY_CHECK"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val inputSet: Array[String] = Array( //
-      "01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t4", "01\t0\t0\t6", //
+      "01\t0\t0\t1","01\t0\t0\t2", "01\t0\t0\t4", "01\t0\t0\t6", //
       "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4", "02\t0\t0\t6")
 
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
 
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -179,13 +104,13 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 
   /** Check that contiguity works also with relaxed time constrains. */
-  def testSmootherContiguityTwoThresholdClusters(dropTableFlag: Boolean): Unit = {
+  test("testSmootherContiguityTwoThresholdClusters") {
     val test_name = "SMOOTHER_CONTIGUITY_TWO_CHECK"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val inputSet: Array[String] =
       Array( //
         "01\t0\t0\t1", //
@@ -198,8 +123,8 @@ object TestOnCluster {
         "02\t0\t0\t7") //
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -210,22 +135,22 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 
   /**
    * Check that contiguity works also with relaxed time costrains, no result should be found here.
    */
-  def testSmootherContiguityClustersNOResult(dropTableFlag: Boolean): Unit = {
+  test("testSmootherContiguityClustersNOResult") {
     val test_name = "SMOOTHER_CONTIGUITY_CHECK_NO_RESULT"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val inputSet: Array[String] = Array( //
       "01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t5", "01\t0\t0\t7", //
       "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t5", "02\t0\t0\t7")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -235,23 +160,24 @@ object TestOnCluster {
       eps_t = 2,
       returnResult = true
     )
-    require(cuteClusters._2.isEmpty, s"$test_name: expected to be empty; found ${cuteClusters._1}")
+    assertTrue(cuteClusters._2.isEmpty)
   }
 
   /**
    * This test include a cell with an superior ID that contains the pattern required but is excluded for some
    * spatio-temporal reason.
    */
-  def testExternalNeighbourClusters(dropTableFlag: Boolean): Unit = {
+
+  test("testExternalNeighbourClusters") {
     val test_name = "EXTERNAL_NEIGHBOUR_CHECK"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val inputSet: Array[String] = Array( //
       "01\t10\t10\t1", "01\t0\t0\t3", "01\t0\t0\t4", "01\t0\t0\t5", //
       "02\t10\t10\t1", "02\t0\t0\t3", "02\t0\t0\t4", "02\t0\t0\t5")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -262,23 +188,23 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 
   /**
    * This test include a cell with an superior ID that contains the pattern required but is excluded for some
    * spatio-temporal reason.
    */
-  def testExternalNeighbourInsideTheIDPathClusters(dropTableFlag: Boolean): Unit = {
+  test("testExternalNeighbourInsideTheIDPathClusters") {
     val test_name = "EXTERNAL_PATH_NEIGHBOUR_CHECK"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val inputSet: Array[String] = Array( //
       "01\t10\t10\t1", "01\t0\t0\t3", "01\t10\t10\t4", "01\t10\t10\t5", //
       "02\t10\t10\t1", "02\t0\t0\t3", "02\t10\t10\t4", "02\t10\t10\t5")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -289,16 +215,16 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 
   /**
    * This test include a cell with an superior ID that contains the pattern required but is excluded for some
    * spatio-temporal reason.
    */
-  def testTwoSplitsClusters(dropTableFlag: Boolean): Unit = {
+  test("testTwoSplitsClusters") {
     val test_name = "TWO_SPLITS_CHECK"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
 
     val inputSet: Array[String] = Array(
       "01\t0\t0\t1", //
@@ -315,8 +241,8 @@ object TestOnCluster {
       "02\t0\t0\t8")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -332,16 +258,17 @@ object TestOnCluster {
       // (RoaringBitmap.bitmapOf(1, 2), 2),
       // (RoaringBitmap.bitmapOf(1, 2), 2)
     )
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
-    println(s"----$test_name: PASSED------")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
+    // println(s"----$test_name: PASSED------")
   }
 
   /**
    * Test the recognition of a Swarm pattern.
    */
-  def testSwarmDetection(dropTableFlag: Boolean): Unit = {
+
+  test("testSwarmDetection") {
     val test_name = "SWARM_DETECTION"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
 
     val inputSet: Array[String] = Array(
       "01\t00\t00\t1", "01\t00\t00\t2", "01\t00\t00\t3", "01\t00\t00\t4", "01\t00\t00\t5", "01\t00\t00\t6",
@@ -353,8 +280,8 @@ object TestOnCluster {
     )
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -371,14 +298,15 @@ object TestOnCluster {
       (RoaringBitmap.bitmapOf(3, 4), 2, 4),
       (RoaringBitmap.bitmapOf(4, 5), 2, 4)
     )
-    // require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected \n${expectedClusters.size} clusters got \n${cuteClusters._2.toSet}")
+    // assertEquals(expectedClusters, cuteClusters._2.toSet)
+    assertEquals(expectedClusters.size, cuteClusters._1)
   }
 
   /**  Test the recognition of a flock pattern. */
-  def testFlockDetection(dropTableFlag: Boolean): Unit = {
+
+  test("testFlockDetection") {
     val test_name = "FLOCK_DETECTION"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val inputSet: Array[String] = Array( //
       "01\t00\t00\t1", "01\t00\t00\t2", "01\t00\t00\t3", "01\t00\t00\t4", "01\t00\t00\t5", "01\t00\t00\t6", //
       "02\t00\t00\t1", "02\t00\t00\t2", "02\t10\t10\t3", "02\t00\t00\t4", "02\t00\t00\t5", "02\t05\t05\t6", //
@@ -389,8 +317,8 @@ object TestOnCluster {
     )
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -404,22 +332,22 @@ object TestOnCluster {
       (RoaringBitmap.bitmapOf(2, 3), 2, 3),
       (RoaringBitmap.bitmapOf(4, 5), 2, 3)
     )
-    // require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected \n${expectedClusters.size} clusters got \n${cuteClusters._2.toSet}")
+    // assertEquals(expectedClusters, cuteClusters._2.toSet)
+    assertEquals(expectedClusters.size, cuteClusters._1)
   }
 
   /**  Test the recognition of a flock pattern. */
-  def testFlockDetectionFromPaper(dropTableFlag: Boolean): Unit = {
+  test("testFlockDetectionFromPaper") {
     val test_name = "testFlockDetectionFromPaper"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val inputSet: Array[String] = Array( //
       "01\t1\t0\t1", "01\t2\t0\t1", "01\t3\t0\t2", "01\t1\t0\t3", "01\t1\t0\t4", "01\t2\t0\t5", "01\t3\t0\t6", "01\t1\t0\t7", //
       "02\t1\t0\t1", "02\t2\t0\t1", "02\t3\t0\t2", "02\t1\t0\t3", "02\t2\t0\t4", "02\t3\t0\t5", "02\t3\t0\t6", "02\t1\t0\t7" //
     )
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 4,
@@ -432,21 +360,22 @@ object TestOnCluster {
     val expectedClusters = Set(
       (RoaringBitmap.bitmapOf(0, 1), 2, 6)
     )
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 
   /**  Test the recognition of a flock pattern. */
-  def testFlockDetectionFromPaperFail(dropTableFlag: Boolean): Unit = {
+    
+  test("FlockDetectionFromPaperFail") {
     val test_name = "testFlockDetectionFromPaperFail"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val inputSet: Array[String] = Array( //
       "01\t1\t0\t1", "01\t3\t0\t2", "01\t1\t0\t3", "01\t1\t0\t4", "01\t2\t0\t5", "01\t3\t0\t6", "01\t1\t0\t7", //
       "02\t1\t0\t1", "02\t3\t0\t2", "02\t1\t0\t3", "02\t2\t0\t4", "02\t3\t0\t5", "02\t3\t0\t6", "02\t1\t0\t7" //
     )
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 4,
@@ -457,14 +386,14 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set()
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
   /**
    * Test recognition of a Group pattern.
    */
-  def testGroupDetection(dropTableFlag: Boolean): Unit = {
+  test("GroupDetection") {
     val test_name = "GROUP_DETECTION"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
 
     val inputSet: Array[String] = Array( //
       "01\t00\t00\t1", "01\t00\t00\t2", "01\t00\t00\t3", "01\t00\t00\t4", "01\t00\t00\t5", "01\t00\t00\t6", //
@@ -476,8 +405,8 @@ object TestOnCluster {
     )
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 3,
@@ -494,13 +423,13 @@ object TestOnCluster {
       (RoaringBitmap.bitmapOf(3, 4), 2, 3),
       (RoaringBitmap.bitmapOf(4, 5), 2, 4)
     )
-    // require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
-    require(cuteClusters._1 == expectedClusters.size, s"$test_name: expected \n${expectedClusters.size} clusters got \n${cuteClusters._2.toSet}")
+    // assertEquals(expectedClusters, cuteClusters._2.toSet)
+    assertEquals(expectedClusters.size, cuteClusters._1)
   }
 
-  def testWeeklyContiguityData(dropTableFlag: Boolean): Unit = {
+  test("WeeklyContiguityData") {
     val test_name = "WEEKLY_CONTIGUITY_DETECTION"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val monday10AMStamp = 1578910464L
     val monday11AMStamp = 1578914064L
     val monday12AMStamp = 1578917664L
@@ -514,9 +443,9 @@ object TestOnCluster {
         s"02\t0\t0\t$monday12AMStamp")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
-    val cuteClusters = CTM.run(
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
       timeScale = DailyScale,
-      droptable = dropTableFlag,
+      droptable = true,
       inTable = tableName,
       minsize = 2,
       minsup = 2,
@@ -526,15 +455,15 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 
   /**
    * Check that contiguity works also with relaxed time constrains
    */
-  def testWeeklySmootherContiguityClusters(dropTableFlag: Boolean): Unit = {
+  test("WeeklySmootherContiguityClusters") {
     val test_name = "WEEKLY_SMOOTHER_CONTIGUITY_CHECK"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val monday10AMStamp = 1578910464L
     val monday11AMStamp = 1578914064L
     val monday13PMStamp = 1578921264L
@@ -546,8 +475,8 @@ object TestOnCluster {
       s"02\t0\t0\t$monday13PMStamp", s"02\t0\t0\t$monday14PMStamp")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       timeScale = DailyScale,
       inTable = tableName,
       minsize = 2,
@@ -558,13 +487,13 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 
   /** Check Flock patterns on Weekly based definition. */
-  def testWeeklyFlockClusters(dropTableFlag: Boolean): Unit = {
+  test("WeeklyFlockClusters") {
     val test_name = "WEEKLY_FLOCK_CHECK"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val sunday10PMStamp = 1578868341L
     val sunday11PMStamp = 1578871941L
     val monday01AMStamp = 1578879141L
@@ -576,8 +505,8 @@ object TestOnCluster {
       s"02\t0\t0\t$monday01AMStamp", s"02\t0\t0\t$monday02AMStamp")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       timeScale = DailyScale,
       inTable = tableName,
       minsize = 2,
@@ -588,13 +517,13 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 
   /** Check Flock patterns on Weekly based definition. */
-  def testWeeklySwarmClusters(dropTableFlag: Boolean): Unit = {
+  test("WeeklySwarmClusters") {
     val test_name = "WEEKLY_SWARM_CHECK"
-    println(s"----$test_name----")
+    // println(s"----$test_name----")
     val sunday10PMStamp = 1578868341L
     val sunday11PMStamp = 1578871941L
     val monday01AMStamp = 1578879141L
@@ -610,8 +539,8 @@ object TestOnCluster {
       s"02\t0\t0\t$monday02AMStamp")
     val tableName = s"tmp_$test_name"
     dataLoader.loadAndStoreDataset(inputSet, tableName, sparkSession, 1)
-    val cuteClusters = CTM.run(
-      droptable = dropTableFlag,
+    val cuteClusters = CTM.run(spark=Some(sparkSession), 
+      droptable = true,
       timeScale = WeeklyScale,
       inTable = tableName,
       minsize = 2,
@@ -620,6 +549,6 @@ object TestOnCluster {
       returnResult = true
     )
     val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 2))
-    require(cuteClusters._2.toSet.equals(expectedClusters), s"$test_name: expected\n${expectedClusters}\ngot:\n${cuteClusters._2.toSet}")
+    assertEquals(expectedClusters, cuteClusters._2.toSet)
   }
 }
