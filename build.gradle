@@ -40,9 +40,9 @@ idea {
 //     commandLine "./test.sh"
 // }
 
-tasks.withType(Test)  {
-    maxParallelForks = 1
-}
+// tasks.withType(Test)  {
+//     maxParallelForks = 1
+// }
 
 dependencies {
     implementation "org.apache.commons:commons-math3:3.6.1"

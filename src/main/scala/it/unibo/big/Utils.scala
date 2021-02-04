@@ -2,6 +2,7 @@ package it.unibo.big
 
 import it.unibo.big.CTM._
 import it.unibo.big.CTM2._
+import org.apache.log4j.{Level, LogManager, Logger}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SaveMode, SparkSession}
@@ -34,16 +35,8 @@ object Utils {
     val SPARK_SQL_TEST_SHUFFLE_PARTITIONS = NEXECUTORS * NCORES
     /** TSV separator. */
     val FIELD_SEPARATOR = "\\t"
-    /** Column name for the timestamp inside the trajectory and cell tables. */
-    val BUCKET_TIMESTAMP_COLUMN_NAME: String = "bucket_unix_timestamp"
     /** Column name for the time bucket inside the trajectory and cell tables. */
     val TIME_BUCKET_COLUMN_NAME: String = "time_bucket"
-    /** Define how many milliseconds are inside a second. */
-    val MILLIS_IN_SECOND: Int = 1000
-    /** Define how many second are inside an hour. */
-    val SECONDS_IN_HOUR: Int = 3600
-    /** Define how many seconds are inside and hour. */
-    val SECOND_IN_MINUTES: Int = 60
     /** Time distance column name for the space table. */
     val SPACE_DISTANCE_COLUMN_NAME = "space_distance"
     /** Time distance column name for the neighbourhood table. */
@@ -57,7 +50,7 @@ object Utils {
     /** Custom id field name. */
     val USER_ID_FIELD = "userid"
     /** Timestamp field name. */
-    val TIMESTAMP_FIELD = "timestamp"
+    val TIMESTAMP_FIELD_NAME = "timestamp"
     /** Default schema for every input database that will be processed by CTM algorithm. */
     val INPUT_REQUIRED_SCHEMA = StructType(
         Array(
@@ -65,7 +58,7 @@ object Utils {
             StructField(TRAJECTORY_ID_FIELD, StringType),
             StructField(LATITUDE_FIELD_NAME, DoubleType),
             StructField(LONGITUDE_FIELD_NAME, DoubleType),
-            StructField(TIMESTAMP_FIELD, LongType)
+            StructField(TIMESTAMP_FIELD_NAME, LongType)
         )
     )
 
@@ -73,7 +66,7 @@ object Utils {
     def writeStatsToFile(fileName: String, inTable: String, minsize: Int, minsup: Int, nItemsets: Long,
                          storage_thr: Int, repfreq: Int, limit: Int, // EFFICIENCY PARAMETERS
                          nexecutors: Int, ncores: Int, maxram: String, // SPARK CONFIGURATION
-                         timescale: TemporalScale, unit_t: Int, bin_t: Int, eps_t: Double,
+                         timescale: TemporalScale, bin_t: Int, eps_t: Double,
                          bin_s: Int, eps_s: Double, // EFFECTIVENESS PARAMETERS
                          nTransactions: Long, brdTrajInCell_bytes: Int, brdNeighborhood_bytes: Int): Unit = {
         val fileExists = Files.exists(Paths.get(fileName))
@@ -81,9 +74,9 @@ object Utils {
         outputFile.createNewFile()
         val bw = new BufferedWriter(new FileWriter(fileName, fileExists))
         if (!fileExists) {
-            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,brdCellInTraj_bytes,nTransactions,nItems,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,unit_t,bin_t,eps_t,bin_s,eps_s\n".replace("_", "").toLowerCase)
+            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,brdCellInTraj_bytes,nTransactions,nItems,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s\n".replace("_", "").toLowerCase)
         }
-        bw.write(s"${CustomTimer.getElapsedTime()},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$unit_t,$bin_t,$eps_t,$bin_s,$eps_s\n")
+        bw.write(s"${CustomTimer.getElapsedTime()},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s\n")
         bw.close()
     }
 
@@ -222,8 +215,8 @@ object Utils {
      * @param maxram     maxram
      * @return start a new spark context
      */
-    def startSparkSession(appName: String = "CTM_test", nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM, shufflepartitions: Int = SPARK_SQL_TEST_SHUFFLE_PARTITIONS, master: String = "local[*]"): SparkSession =
-        SparkSession.builder()
+    def startSparkSession(appName: String = "CTM_test", nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM, shufflepartitions: Int = SPARK_SQL_TEST_SHUFFLE_PARTITIONS, master: String = "local[*]"): SparkSession = {
+        val session = SparkSession.builder()
             .appName(appName)
             .master(master)
             .config("spark.shuffle.reduceLocality.enabled", value = false)
@@ -235,4 +228,11 @@ object Utils {
             .config("spark.sql.legacy.allowCreatingManagedTableUsingNonemptyLocation", "true")
             .enableHiveSupport
             .getOrCreate
+
+        session.sparkContext.setLogLevel("ERROR")
+        Logger.getLogger("org").setLevel(Level.ERROR)
+        Logger.getLogger("akka").setLevel(Level.ERROR)
+        LogManager.getRootLogger.setLevel(Level.ERROR)
+        session
+    }
 }

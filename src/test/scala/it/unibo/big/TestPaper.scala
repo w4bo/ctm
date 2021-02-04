@@ -49,9 +49,9 @@ object TestPaper {
         .appName("TestPaper") // Change this to a proper name
         .config("spark.broadcast.compress", "false")
         .config("spark.shuffle.compress", "false")
-        .config("hive.metastore.uris", "thrift://137.204.72.75:9083")
-        .config("spark.hadoop.yarn.resourcemanager.hostname", "137.204.72.75")
-        .config("spark.hadoop.yarn.resourcemanager.address", "137.204.72.75:8032")
+        // .config("hive.metastore.uris", "thrift://137.204.72.75:9083")
+        // .config("spark.hadoop.yarn.resourcemanager.hostname", "137.204.72.75")
+        // .config("spark.hadoop.yarn.resourcemanager.address", "137.204.72.75:8032")
         .config("spark.shuffle.spill.compress", "false")
         .config("spark.io.compression.codec", "lzf")
         .config("spark.sql.legacy.allowCreatingManagedTableUsingNonemptyLocation", "true")

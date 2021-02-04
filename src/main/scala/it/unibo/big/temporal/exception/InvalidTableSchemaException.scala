@@ -12,5 +12,5 @@ final case class InvalidTableSchemaException(private val message: String = Inval
 object InvalidTableSchemaException {
   val ERROR_MESSAGE = s"A valid schema was not found, please use a database whose schema contains the following fields:" +
     s"${Utils.USER_ID_FIELD}(String),${Utils.TRAJECTORY_ID_FIELD}(String), ${Utils.LATITUDE_FIELD_NAME}(Double), " +
-    s"${Utils.LONGITUDE_FIELD_NAME}(Double), ${Utils.TIMESTAMP_FIELD}(Long)"
+    s"${Utils.LONGITUDE_FIELD_NAME}(Double), ${Utils.TIMESTAMP_FIELD_NAME}(Long)"
 }
