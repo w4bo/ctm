@@ -105,6 +105,7 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
         .reduce(_ + _)
     import java.io._
     val pw = new PrintWriter(new File(s"src/main/resources/$filename"))
+    pw.write("Object_ID\tLatitude\tLongitude\tTime\n")
     pw.write(s)
     pw.close()
   }
@@ -270,7 +271,6 @@ class TestPaper extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll 
       (20, Vector(3)),
       (21, Vector(3))
     )
-    torelational(data, "flow.tsv")
     val res = CTM.run(spark = Some(sparkSession),
       minsize = 2,
       minsup = 3,

@@ -4,7 +4,7 @@ import it.unibo.big.TemporalScale.NoScale
 import it.unibo.big.Utils._
 import it.unibo.big.temporal.TemporalCellBuilder
 import it.unibo.big.temporal.TemporalCellBuilder._
-import org.apache.log4j.{Level, LogManager, Logger}
+import org.apache.log4j.Logger
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
@@ -125,11 +125,18 @@ object CTM {
                 transactionTable = s"tmp_transactiontable$temporaryTableName".replace("-", "__") // Trajectories mapped to cells
                 cellToIDTable = s"tmp_celltoid$temporaryTableName".replace("-", "__") // Cells with ids
                 neighborhoodTable = s"tmp_neighborhood$temporaryTableName".replace("-", "__") // Neighborhoods
+                L.debug(s"""--- Writing to
+                       |        $summaryTable
+                       |        $itemsetTable
+                       |        $supportTable
+                       |        $transactionTable
+                       |        $cellToIDTable
+                       |        $neighborhoodTable
+                       |        $outTable2""".stripMargin)
 
                 /* *************************************************************************************************************
                  * Trajectory mapping: mapping trajectories to trajectory abstractions
                  * **************************************************************************************************************/
-                L.debug(s"\n--- Writing to \n\t$itemsetTable\n\t$outTable2\n")
                 if (droptable) {
                     L.debug("Dropping tables.")
                     sparkSession.sql(s"drop table if exists $DB_NAME.$transactionTable")
