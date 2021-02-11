@@ -93,8 +93,8 @@ object CTM2 {
             var maxc = if (isPlatoon) Int.MaxValue else Int.MinValue
             sp.forEach(toJavaConsumer({ tile: Integer => { // for each tile in the support
                 if ( // if a connected component of at least minsup has not been found && the tile has been not visited yet
-                    (returnResult && (!isPlatoon || isValidPlatoon) || // to return the result, I cannot stop to minsup
-                        !returnResult && (!isPlatoon && c < minsup || isPlatoon && isValidPlatoon)) && !marked.contains(tile)
+                    (returnComponents && (!isPlatoon || isValidPlatoon) || // to return the result, I cannot stop to minsup
+                        !returnComponents && (!isPlatoon && c < minsup || isPlatoon && isValidPlatoon)) && !marked.contains(tile)
                 ) {
                     // reset the connected component
                     c = 0
@@ -103,7 +103,7 @@ object CTM2 {
                     def connectedComponentRec(i: Int): Unit = { // recursive function
                         marked += i // add the tile to the explored set
                         c += 1 // increase the number of adjacent tiles
-                        if (returnResult) {
+                        if (returnComponents) {
                             cc.add(i)
                         } // add the adjacent tile
                         // for each neighbor of the current tile, if the neighbor is in the cluster support and it has been not explored yet ...
@@ -111,7 +111,7 @@ object CTM2 {
                         // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
                         if (neighborhood.isDefined) {
                             neighborhood.get.forEach(toJavaConsumer(i =>
-                                if ((returnResult || c < minsup) && !marked.contains(i) && supp.contains(i)) {
+                                if ((returnComponents || c < minsup) && !marked.contains(i) && supp.contains(i)) {
                                     connectedComponentRec(i)
                                 }))
                         }
@@ -121,7 +121,7 @@ object CTM2 {
                     isValidPlatoon = c >= minsup
                     // add the connected component if big enough
                     maxc = if (isPlatoon) Math.min(c, maxc) else Math.max(c, maxc)
-                    if (returnResult && c >= minsup) {
+                    if (returnComponents && c >= minsup) {
                         ccs.or(cc)
                     }
                 }
@@ -183,7 +183,7 @@ object CTM2 {
                 .filter({ case (i: RoaringBitmap, extend: Boolean, cs: RoaringBitmap, sp: RoaringBitmap, ts: RoaringBitmap) => filterCluster(i, cs, sp, ts) })
                 .localCheckpoint()
         val clusterCount = clusters.count()
-        L.debug(s"\n--- Init clusters: $clusterCount")
+        println(s"\n--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Init clusters: $clusterCount")
         countOk.reset()
         countToExtend.reset()
         /* *****************************************************************************************************************
@@ -193,7 +193,7 @@ object CTM2 {
         val empty: RoaringBitmap = RoaringBitmap.bitmapOf()
         do {
             curIteration += 1
-            L.debug(s"\n--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} $conf Iteration: " + curIteration)
+            L.info(s"\n--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} $conf Iteration: " + curIteration)
             countOk.reset()
             countToExtend.reset()
             clusters =
@@ -247,7 +247,7 @@ object CTM2 {
             // Update clusters count values
             c = clusters.count()
             nItemsets += countOk.value
-            L.debug(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Done: ${c + countStored} (ok: $nItemsets [stored: $countStored], toExtend: ${countToExtend.value})")
+            println(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Done: ${c + countStored} (ok: $nItemsets [stored: $countStored], toExtend: ${countToExtend.value})")
 
             /* ***************************************************************************************************************
              * Iteratively store the itemsets to free memory (if necessary)
@@ -267,7 +267,6 @@ object CTM2 {
                         })
                         .toDF("itemsetid", "size", "support")
                         .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(summaryTable)
-                    require(!spark.sql(s"select * from $summaryTable").isEmpty, s"Empty $summaryTable")
 
                     towrite
                         .flatMap({ case (uid: Int, itemset: RoaringBitmap) =>
@@ -278,7 +277,6 @@ object CTM2 {
                         })
                         .toDF("itemsetid", "itemid")
                         .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(itemsetTable)
-                    require(!spark.sql(s"select * from $itemsetTable").isEmpty, s"Empty $itemsetTable")
 
                     towrite
                         .flatMap({ case (uid: Int, itemset: RoaringBitmap) =>
@@ -289,7 +287,6 @@ object CTM2 {
                         })
                         .toDF("itemsetid", "tileid")
                         .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(supportTable)
-                    require(!spark.sql(s"select * from $supportTable").isEmpty, s"Empty $supportTable")
                     L.debug(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Done writing")
                 }
                 countStored += nItemsets - countStored

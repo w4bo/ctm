@@ -1,11 +1,8 @@
 package it.unibo.big
 
-import it.unibo.big.CTM._
-import it.unibo.big.CTM2._
-import org.apache.log4j.{Level, LogManager, Logger}
-import org.apache.spark.rdd.RDD
+import org.apache.log4j.{Level, Logger}
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.roaringbitmap.RoaringBitmap
 
 import java.io.{BufferedWriter, File, FileWriter}
@@ -32,7 +29,7 @@ object Utils {
     /** Default shuffle partitions */
     val SPARK_SQL_SHUFFLE_PARTITIONS = 200
     /** Default shuffle partitions */
-    val SPARK_SQL_TEST_SHUFFLE_PARTITIONS = NEXECUTORS * NCORES
+    val SPARK_SQL_TEST_SHUFFLE_PARTITIONS: Int = NEXECUTORS * NCORES
     /** TSV separator. */
     val FIELD_SEPARATOR = "\\t"
     /** Column name for the time bucket inside the trajectory and cell tables. */
@@ -74,9 +71,9 @@ object Utils {
         outputFile.createNewFile()
         val bw = new BufferedWriter(new FileWriter(fileName, fileExists))
         if (!fileExists) {
-            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,brdCellInTraj_bytes,nTransactions,nItems,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s\n".replace("_", "").toLowerCase)
+            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,nTransactions,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s\n".replace("_", "").toLowerCase)
         }
-        bw.write(s"${CustomTimer.getElapsedTime()},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s\n")
+        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s\n")
         bw.close()
     }
 
@@ -187,10 +184,10 @@ object Utils {
         }
 
         /** @return elapsed time */
-        def getElapsedTime(): Long = System.currentTimeMillis() - startTime
+        def getElapsedTime: Long = System.currentTimeMillis() - startTime
 
         /** @return elapsed time since previous invocation of this method */
-        def getRelativeElapsedTime(): Long = {
+        def getRelativeElapsedTime: Long = {
             val newtime = System.currentTimeMillis() - time
             time = newtime
             time
@@ -216,6 +213,8 @@ object Utils {
      * @return start a new spark context
      */
     def startSparkSession(appName: String = "CTM_test", nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM, shufflepartitions: Int = SPARK_SQL_TEST_SHUFFLE_PARTITIONS, master: String = "local[*]"): SparkSession = {
+        Logger.getLogger("org").setLevel(Level.ERROR)
+        Logger.getLogger("akka").setLevel(Level.ERROR)
         val session = SparkSession.builder()
             .appName(appName)
             .master(master)
@@ -228,11 +227,7 @@ object Utils {
             .config("spark.sql.legacy.allowCreatingManagedTableUsingNonemptyLocation", "true")
             .enableHiveSupport
             .getOrCreate
-
         session.sparkContext.setLogLevel("ERROR")
-        Logger.getLogger("org").setLevel(Level.ERROR)
-        Logger.getLogger("akka").setLevel(Level.ERROR)
-        LogManager.getRootLogger.setLevel(Level.ERROR)
         session
     }
 }

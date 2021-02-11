@@ -46,22 +46,22 @@ object TemporalCellBuilder {
         val s = timescale match {
             case DailyScale => s"hour(from_unixtime($column))"
             case WeeklyScale => s"case when from_unixtime($column, 'u') <= 5 then 0 else 1 end"
-            case AbsoluteScale => s"$column"
+            case AbsoluteScale => column
             case NoScale => "0"
         }
-        "CAST((" + s + s"/${bin_t}) as BIGINT) * ${bin_t}"
+        "CAST((" + s + s"/ ${bin_t}) as BIGINT) * ${bin_t}"
     }
 
     def computeLatitudeQuery(euclidean: Boolean, cellRound: Int, column: String = LATITUDE_FIELD_NAME): String =
         if (euclidean) {
-            s"round($column / ${DEFAULT_CELL_SIDE * cellRound}, 0)"
+            s"round(round($column / ${DEFAULT_CELL_SIDE * cellRound}, 0) * ${DEFAULT_CELL_SIDE * cellRound}, 0) "
         } else {
             s"round(round($column / ${11 * cellRound}, 4) * ${11 * cellRound}, 4)"
         }
 
     def computeLongitudeQuery(euclidean: Boolean, cellRound: Int, column: String = LONGITUDE_FIELD_NAME): String =
         if (euclidean) {
-            s"round($column / ${DEFAULT_CELL_SIDE * cellRound}, 0)"
+            s"round(round($column / ${DEFAULT_CELL_SIDE * cellRound}, 0) * ${DEFAULT_CELL_SIDE * cellRound}, 0) "
         } else {
             s"round(round($column / ${15 * cellRound}, 4) * ${15 * cellRound}, 4)"
         }

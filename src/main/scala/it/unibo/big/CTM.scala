@@ -84,7 +84,7 @@ object CTM {
         this.ncores = ncores
         this.maxram = maxram
         this.timeScale = timeScale
-        this.bin_t = 1
+        this.bin_t = bin_t
         this.eps_t = eps_t
         this.bin_s = bin_s
         this.eps_s = eps_s
@@ -125,7 +125,7 @@ object CTM {
                 transactionTable = s"tmp_transactiontable$temporaryTableName".replace("-", "__") // Trajectories mapped to cells
                 cellToIDTable = s"tmp_celltoid$temporaryTableName".replace("-", "__") // Cells with ids
                 neighborhoodTable = s"tmp_neighborhood$temporaryTableName".replace("-", "__") // Neighborhoods
-                L.debug(s"""--- Writing to
+                L.info(s"""--- Writing to
                        |        $summaryTable
                        |        $itemsetTable
                        |        $supportTable
@@ -150,9 +150,7 @@ object CTM {
                     val inputDFtable = inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length) + "_temp"
                     L.debug(s"--- Getting data from $inTable...")
                     getData(sparkSession, inTable, inputDFtable, timeScale, bin_t, euclidean, bin_s)
-                    if (debug || returnResult) {
-                        sparkSession.sql(s"select * from $inputDFtable").show(linesToPrint)
-                    }
+                    sparkSession.sql(s"select * from $inputDFtable").show(linesToPrint)
                     // create trajectory abstractions from the `inputDFtable`, and store it to the `transactionTable` table
                     L.debug(s"--- Generating $transactionTable...")
                     mapToReferenceSystem(sparkSession, inputDFtable, transactionTable, minsize, minsup, limit)
@@ -227,15 +225,15 @@ object CTM {
                 droptable = conf.droptable(),
                 timeScale = TemporalScale(conf.timescale.getOrElse(NoScale.value)),
                 bin_t = conf.bint.getOrElse(0),
-                eps_t = conf.epst(),
-                eps_s = conf.epss(),
+                eps_t = conf.epst.getOrElse(Double.PositiveInfinity),
+                eps_s = conf.epss.getOrElse(Double.PositiveInfinity),
                 bin_s = conf.bins(),
                 nexecutors = conf.nexecutors(),
                 ncores = conf.ncores(),
                 maxram = conf.maxram(),
                 storage_thr = conf.storagethr.getOrElse(1000000),
                 repfreq = conf.repfreq(),
-                limit = conf.limit.getOrElse(1000000),
+                limit = conf.limit.getOrElse(conf.minsize() * 1000),
                 minsize = conf.minsize(),
                 minsup = conf.minsup(),
                 platoon = conf.platoon(),
@@ -271,5 +269,6 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
     val debug = opt[Boolean](required = true)
     val droptable = opt[Boolean]()
     val returnresult = opt[Boolean]()
+    val querytype = opt[String]()
     verify()
 }
