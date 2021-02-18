@@ -1,9 +1,8 @@
 package it.unibo.big.comparison
 
 import org.junit.Test
-import org.scalatest.FunSuite
 
-class JaccardComparatorTest extends FunSuite {
+class JaccardComparatorTest {
 
   @Test
   def testJaccardSameSet(): Unit = {

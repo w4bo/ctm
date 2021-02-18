@@ -45,7 +45,7 @@ object TemporalCellBuilder {
     def computeTimeBin(timescale: TemporalScale, bin_t: Int, column: String = TIMESTAMP_FIELD_NAME): String = {
         val s = timescale match {
             case DailyScale => s"hour(from_unixtime($column))"
-            case WeeklyScale => s"case when from_unixtime($column, 'u') <= 5 then 0 else 1 end"
+            case WeeklyScale => s"from_unixtime($column, 'u')" // s"case when from_unixtime($column, 'u') <= 5 then 0 else 1 end"
             case AbsoluteScale => column
             case NoScale => "0"
         }

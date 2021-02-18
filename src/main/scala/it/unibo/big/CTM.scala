@@ -91,7 +91,8 @@ object CTM {
         this.euclidean = euclidean
 
         val temporaryTableName: String = // Define the generic name of the support table, based on the relevant parameters for cell creation.
-            s"-tbl_${inTable.replace("trajectory.", "")}" +
+            s"-tbl_${inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length)}" +
+                // {inTable.replace("trajectory.", "")}" +
                 s"-lmt_${if (limit == Int.MaxValue) "Infinity" else limit}" +
                 s"-size_$minsize" +
                 s"-sup_$minsup" +

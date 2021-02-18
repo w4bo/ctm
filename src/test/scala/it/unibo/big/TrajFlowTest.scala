@@ -1,15 +1,15 @@
 package it.unibo.big
 
+import junit.framework.TestCase.assertTrue
 import org.apache.log4j.Logger
 import org.apache.spark.HashPartitioner
-import org.junit.Assert._
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 import org.roaringbitmap.RoaringBitmap
-import org.scalatest.junit.JUnitSuite
 
 import java.util.Random
 
-class TrajFlowTest extends JUnitSuite {
+class TrajFlowTest {
     private val L = Logger.getLogger(classOf[TrajFlowTest])
 
     @Test def roaringPerformance1()(): Unit = {

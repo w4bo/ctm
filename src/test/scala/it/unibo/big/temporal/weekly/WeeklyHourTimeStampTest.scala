@@ -1,9 +1,8 @@
 package it.unibo.big.temporal.weekly
 
 import org.junit.Test
-import org.scalatest.FunSuite
 
-class WeeklyHourTimeStampTest extends FunSuite {
+class WeeklyHourTimeStampTest {
 
   val midnightMondayTimeStamp = 1578269438L
 

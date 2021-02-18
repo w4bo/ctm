@@ -1,9 +1,8 @@
 package it.unibo.big.comparison
 
 import org.junit.Test
-import org.scalatest.FunSuite
 
-class MarriageSimilarityTest extends FunSuite {
+class MarriageSimilarityTest {
 
   @Test
   def testSameSetOfElemets(): Unit = {

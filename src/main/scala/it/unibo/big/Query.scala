@@ -6,6 +6,7 @@ import it.unibo.big.temporal.TemporalCellBuilder.{computeLatitudeQuery, computeL
 import org.apache.spark.sql.SaveMode
 
 import java.io._
+import java.util.Scanner
 
 /** This is the main class of the project */
 object Query {
@@ -25,7 +26,8 @@ object Query {
             bin_t = conf.bint.getOrElse(5),
             timescale = TemporalScale(conf.timescale.getOrElse(AbsoluteScale.value)),
             euclidean = conf.euclidean.getOrElse(true),
-            querytype = conf.querytype()
+            querytype = conf.querytype(),
+            limit = conf.limit.getOrElse(1000000)
         )
     }
 
@@ -35,65 +37,71 @@ object Query {
      * @param minsup  Minimum support of the co-movement patterns (i.e., how long trajectories moved together)
      * @param bin_s   bin_s \in N (1, ..., n). Multiply cell size 123m x bin_s
      */
-    def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, euclidean: Boolean, querytype: String): Unit = {
+    def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, euclidean: Boolean, querytype: String, limit: Int): Unit = {
         querytype match {
-            case "export" => exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, euclidean)
+            case "export" => exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, euclidean, limit)
         }
     }
 
-    /**
-     * Export original and binned data from the valid patterns
-     */
-    def exportData(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, euclidean: Boolean, exportRealData: Boolean = true): Int = {
+    /** Export original and binned data from the valid patterns */
+    def exportData(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, euclidean: Boolean, lmt: Int): Unit = {
         val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn")
-        var sql =
-            s"""select i.itemsetid, t.itemid, t.tid, t.latitude as bin_latitude, t.longitude as bin_longitude, t.time_bucket as bin_timestamp, u.tileid as in_support ${if (exportRealData) ", s.userid, s.trajectoryid, s.`timestamp`, s.latitude, s.longitude " else ""}
-               |from (select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_1000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__summary order by 2 desc limit 2) a
-               |     join ctm.CTM__tbl_${inTable}__lmt_1000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__itemset i on (a.itemsetid = i.itemsetid)
-               |     join ctm.tmp_transactiontable__tbl_${inTable}__lmt_1000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t} t on (t.itemid = i.itemid)
-               |     left join ctm.CTM__tbl_${inTable}__lmt_1000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__support u on (t.tid = u.tileid and i.itemsetid = u.itemsetid)
-               |""".stripMargin
-        if (exportRealData) {
-            sql +=
-                s"""     join trajectory.${inTable} s on (t.userid = s.userid and t.trajectoryid = s.trajectoryid
-                   |        and ${computeTimeBin(timescale, bin_t, column = "s.`timestamp`")} = t.time_bucket
-                   |        and ${computeLatitudeQuery(euclidean, bin_s, "s.latitude")} = t.latitude
-                   |        and ${computeLongitudeQuery(euclidean, bin_s, "s.longitude")} = t.longitude)
-                 """.stripMargin
-        }
+        val sql = //  order by 2 desc limit 2
+            s"""select i.itemsetid, t.itemid, t.tid, t.latitude as bin_latitude, t.longitude as bin_longitude, t.time_bucket as bin_timestamp, u.tileid as in_support, s.userid, s.trajectoryid, s.`timestamp`, s.latitude, s.longitude
+               |from (select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__summary) a
+               |     join ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__itemset i on (a.itemsetid = i.itemsetid)
+               |     join ctm.tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t} t on (t.itemid = i.itemid)
+               |     left join ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_Infinity__freq_1__sthr_1000000__support u on (t.tid = u.tileid and i.itemsetid = u.itemsetid)
+               |     join trajectory.${inTable} s on (t.userid = s.userid and t.trajectoryid = s.trajectoryid
+               |        and ${computeTimeBin(timescale, bin_t, column = "s.`timestamp`")} = t.time_bucket
+               |        and ${computeLatitudeQuery(euclidean, bin_s, "s.latitude")} = t.latitude
+               |        and ${computeLongitudeQuery(euclidean, bin_s, "s.longitude")} = t.longitude)""".stripMargin
         var tablename = s"join__${inTable}__${minsize}__${minsup}__${bin_s}__${timescale.value}__${bin_t}"
 
         println(s"SQL:\n$sql")
         sparkSession.sql("use ctm")
         sparkSession.sql(sql).write.mode(SaveMode.Overwrite).saveAsTable(tablename)
 
-
         val pw = new PrintWriter(new File("saveQuery.sh"))
-        var hivequery = s"select itemsetid, itemid, tid${if (exportRealData) ", userid, trajectoryid, `timestamp`, latitude, longitude" else ""}, bin_latitude, bin_longitude, bin_timestamp, in_support from $tablename"
+        var hivequery = s"select itemsetid, itemid, tid, userid, trajectoryid, `timestamp`, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support from $tablename"
         var hiveCommand = s"hive -e 'set hive.cli.print.header=true; use ctm; $hivequery' | sed 's/[\\t]/,/g'  > $tablename.csv"
-        println(s"Hive command:\n$hiveCommand")
-        pw.write(hiveCommand)
+        println(hiveCommand)
+        pw.write(s"$hiveCommand\n")
 
         // sparkSession.sql(s"select itemid, bin_latitude, bin_longitude, bin_timestamp from $tablename").rdd.map(r => (r.get(3), (r.get(0), r.get(1), r.get(2))))
-        hivequery = s"select itemid, bin_latitude, bin_longitude, bin_timestamp from $tablename"
+        hivequery = s"select distinct itemid, bin_latitude, bin_longitude, bin_timestamp from $tablename"
         hiveCommand = s"hive -e 'set hive.cli.print.header=true; use ctm; $hivequery' > $tablename.tsv"
         var hdfsCommand = s"hdfs dfs -put $tablename.tsv /user/mfrancia/spare/input"
-        println(s"Hive command:\n$hiveCommand")
-        pw.write(hiveCommand)
-        pw.write(hdfsCommand)
+        println(hiveCommand)
+        pw.write(s"$hiveCommand\n")
+        println(hdfsCommand)
+        pw.write(s"$hdfsCommand\n")
 
-        tablename = s"tmp_transactiontable__tbl_${inTable}__lmt_1000000__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}"
+        tablename = s"tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}"
         hivequery = s"select itemid, latitude, longitude, time_bucket from $tablename"
         hiveCommand = s"hive -e 'set hive.cli.print.header=true; use ctm; $hivequery' > $tablename.tsv"
         hdfsCommand = s"hdfs dfs -put $tablename.tsv /user/mfrancia/spare/input"
-        println(s"Hive command:\n$hiveCommand")
-        pw.write(hiveCommand)
-        pw.write(hdfsCommand)
+        println(hiveCommand)
+        pw.write(s"$hiveCommand\n")
+        println(hdfsCommand)
+        pw.write(s"$hdfsCommand\n")
 
         // df.repartition(1).write.option("sep", ",").option("header", "true").option("escape", "\"").option("quoteAll", "true").csv("file:////home/mfrancia/ctm/output/")
-        sparkSession.stop()
         pw.close()
 
-        new ProcessBuilder("./saveQuery.sh").start().waitFor()
+        execCmd("chmod u+x saveQuery.sh")
+        execCmd("./saveQuery.sh")
+    }
+
+    @throws[java.io.IOException]
+    def execCmd(cmd: String) = {
+        val proc = Runtime.getRuntime.exec(cmd)
+        proc.waitFor()
+        val is = proc.getInputStream
+        val s = new Scanner(is).useDelimiter("\\A")
+        var `val` = ""
+        if (s.hasNext) `val` = s.next
+        else `val` = ""
+        println(`val`)
     }
 }
