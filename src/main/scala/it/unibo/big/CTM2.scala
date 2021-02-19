@@ -190,6 +190,7 @@ object CTM2 {
          * END - Creating the transactional dataset
          * ****************************************************************************************************************/
 
+        val acc = spark.sparkContext.longAccumulator
         val empty: RoaringBitmap = RoaringBitmap.bitmapOf()
         do {
             curIteration += 1
@@ -204,6 +205,7 @@ object CTM2 {
                 }) // Shuffle the data every few iterations
                     .flatMap({ case (lCluster: RoaringBitmap, extend: Boolean, x: RoaringBitmap, r: RoaringBitmap, lClusterSupport: RoaringBitmap) =>
                         if (extend) { // If the cluster should be extended...
+                            acc.add(1)
                             var L: Array[CarpenterRowSet] = Array() // accumulator
                             // cannot check this after connectedComponent(RoaringBitmap.or(XplusY, R)), otherwise platoon fails
                             if (!toExtend(lClusterSupport)) { // if is a valid co-movement pattern...
@@ -296,6 +298,7 @@ object CTM2 {
             spark.sparkContext.getPersistentRDDs.keys.toVector.sorted.dropRight(1).foreach(id => spark.sparkContext.getPersistentRDDs(id).unpersist(true))
         } while (countToExtend.value > 0)
 
+
         val res: Array[(RoaringBitmap, Int, Int)] =
             if (!returnResult) {
                 Array()
@@ -305,7 +308,7 @@ object CTM2 {
                     .map({ case (i: RoaringBitmap, _: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => Array[(RoaringBitmap, Int, Int)]((i, i.getCardinality, support(i).getCardinality)) })
                     .fold(Array.empty[(RoaringBitmap, Int, Int)])(_ ++ _)
             }
-        writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum)
+        writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum, acc)
         spark.sparkContext.getPersistentRDDs.foreach(i => i._2.unpersist())
         spark.catalog.clearCache()
         spark.sqlContext.clearCache()
