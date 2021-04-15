@@ -66,15 +66,15 @@ object Utils {
                          nexecutors: Int, ncores: Int, maxram: String, // SPARK CONFIGURATION
                          timescale: TemporalScale, bin_t: Int, eps_t: Double,
                          bin_s: Int, eps_s: Double, // EFFECTIVENESS PARAMETERS
-                         nTransactions: Long, brdTrajInCell_bytes: Int, brdNeighborhood_bytes: Int, acc: LongAccumulator): Unit = {
+                         nTransactions: Long, brdTrajInCell_bytes: Int, brdNeighborhood_bytes: Int, acc: LongAccumulator, acc2: LongAccumulator): Unit = {
         val fileExists = Files.exists(Paths.get(fileName))
         val outputFile = new File(fileName)
         outputFile.createNewFile()
         val bw = new BufferedWriter(new FileWriter(fileName, fileExists))
         if (!fileExists) {
-            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,nTransactions,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s,exploredpatterns\n".replace("_", "").toLowerCase)
+            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,nTransactions,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s,exploredpatterns,exploredpatterns2\n".replace("_", "").toLowerCase)
         }
-        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s,${acc.value}\n")
+        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s,${acc.value},${acc2.value}\n")
         bw.close()
     }
 

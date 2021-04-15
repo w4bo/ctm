@@ -191,6 +191,11 @@ object CTM2 {
          * ****************************************************************************************************************/
 
         val acc = spark.sparkContext.longAccumulator
+        val acc2 = spark.sparkContext.longAccumulator
+        val accmCrd = spark.sparkContext.longAccumulator
+        val accmLen = spark.sparkContext.longAccumulator
+        val accmSup = spark.sparkContext.longAccumulator
+
         val empty: RoaringBitmap = RoaringBitmap.bitmapOf()
         do {
             curIteration += 1
@@ -224,6 +229,7 @@ object CTM2 {
                                 // R = RoaringBitmap.and(R, conncomp._2)
                                 // RoaringBitmap.and(R, conncomp._2)
                                 R.forEach(toJavaConsumer({ key: Integer => {
+                                    acc2.add(1)
                                     val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // new co-movement pattern
                                     //require(!c.isEmpty, "cluster cannot be empty")
                                     R = RoaringBitmap.remove(R, key, key + 1) // reduce the search space
@@ -308,7 +314,7 @@ object CTM2 {
                     .map({ case (i: RoaringBitmap, _: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => Array[(RoaringBitmap, Int, Int)]((i, i.getCardinality, support(i).getCardinality)) })
                     .fold(Array.empty[(RoaringBitmap, Int, Int)])(_ ++ _)
             }
-        writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum, acc)
+        writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum, acc, acc2)
         spark.sparkContext.getPersistentRDDs.foreach(i => i._2.unpersist())
         spark.catalog.clearCache()
         spark.sqlContext.clearCache()

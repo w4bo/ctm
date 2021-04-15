@@ -42,13 +42,14 @@ class TestRegression {
         val minsize: Int = 10
         val minsup: Int = 34
         val bin_s: Int = 20
+        val eps_t: Double = Double.PositiveInfinity
         val limit: Int = 1000000
         val timescale: TemporalScale = AbsoluteScale
         val bin_t: Int = 1
         val euclidean: Boolean = true
 
         CTM.run(droptable = true, spark = Some(sparkSession), storage_thr = 1000000, inTable = inTable, limit = limit, minsize = minsize, minsup = minsup, bin_s = bin_s, bin_t = bin_t, timeScale = timescale, euclidean = euclidean)
-        Query.run(inTable.replace("trajectory.", ""), minsize, minsup, bin_s, timescale, bin_t, euclidean, "export", limit)
+        Query.run(inTable.replace("trajectory.", ""), minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, "export", limit)
         
         val source = scala.io.Source.fromFile("itemsets.txt")
         val lines: String = try source.mkString finally source.close()
