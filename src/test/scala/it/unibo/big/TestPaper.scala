@@ -309,108 +309,108 @@ class TestPaper {
         assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), res._2.toSet.toString)
     }
 
-    @Test def Platoon() = {
-        val data: Seq[(Tid, Vector[Itemid])] = Vector(
-            (1, Vector(1, 2)),
-            (3, Vector(1, 2)),
-            (4, Vector(1)),
-            (7, Vector(1, 2)),
-            (8, Vector(1, 2)),
-            (11, Vector(2)),
-            (12, Vector(1)),
-            (16, Vector(1, 2)),
-            (19, Vector(3)),
-            (20, Vector(1, 2))
-        )
-        torelational(data, "platoon.tsv")
-        val res = CTM.run(spark = Some(sparkSession),
-            minsize = 2,
-            minsup = 2,
-            bin_s = 1,
-            timeScale = AbsoluteScale,
-            bin_t = 1,
-            returnResult = true,
-            debugData = data,
-            neighs = neigh(3, 7, 1, Int.MaxValue, true),
-            platoon = true
-        )
-        assert(res._1 == 1, "Failed, current result is: " + res)
-        assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 6))), res._2.toSet.toString)
-    }
+//    @Test def Platoon() = {
+//        val data: Seq[(Tid, Vector[Itemid])] = Vector(
+//            (1, Vector(1, 2)),
+//            (3, Vector(1, 2)),
+//            (4, Vector(1)),
+//            (7, Vector(1, 2)),
+//            (8, Vector(1, 2)),
+//            (11, Vector(2)),
+//            (12, Vector(1)),
+//            (16, Vector(1, 2)),
+//            (19, Vector(3)),
+//            (20, Vector(1, 2))
+//        )
+//        torelational(data, "platoon.tsv")
+//        val res = CTM.run(spark = Some(sparkSession),
+//            minsize = 2,
+//            minsup = 2,
+//            bin_s = 1,
+//            timeScale = AbsoluteScale,
+//            bin_t = 1,
+//            returnResult = true,
+//            debugData = data,
+//            neighs = neigh(3, 7, 1, Int.MaxValue, true),
+//            platoon = true
+//        )
+//        assert(res._1 == 1, "Failed, current result is: " + res)
+//        assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2), 2, 6))), res._2.toSet.toString)
+//    }
 
-    @Test def Platoon2() = {
-        val data: Seq[(Tid, Vector[Itemid])] = Vector(
-            (1, Vector(1, 2, 3, 4, 5, 6)),
-            (2, Vector(1, 2, 3)),
-            (4, Vector(1, 2, 4)),
-            (5, Vector(1, 2, 5)),
-            (7, Vector(1, 2, 6))
-        )
-        torelational(data, "platoon2.tsv")
-        val res = CTM.run(spark = Some(sparkSession),
-            minsize = 2,
-            minsup = 2,
-            bin_s = 1,
-            timeScale = AbsoluteScale,
-            bin_t = 1,
-            returnResult = true,
-            debugData = data,
-            neighs = neigh(3, 7, 1, Int.MaxValue, true),
-            platoon = true
-        )
-        assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), res._2.toSet.toString)
-    }
-
-    @Test def Platoon3() = {
-        val data: Seq[(Tid, Vector[Itemid])] = Vector(
-            (1, Vector(1, 2, 3, 4, 5, 6)),
-            (2, Vector(1, 2, 3)),
-            (4, Vector(1, 2, 4)),
-            (5, Vector(1, 2, 5)),
-            (7, Vector(1, 6))
-        )
-        torelational(data, "platoon3.tsv")
-        val res = CTM.run(spark = Some(sparkSession),
-            minsize = 2,
-            minsup = 2,
-            bin_s = 1,
-            timeScale = AbsoluteScale,
-            bin_t = 1,
-            returnResult = true,
-            debugData = data,
-            neighs = neigh(3, 7, 1, Int.MaxValue, true),
-            platoon = true
-        )
-        assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2), (RoaringBitmap.bitmapOf(1, 2), 2, 4))), res._2.toSet.toString)
-    }
-
-    @Test def Platoonfail() = {
-        val data: Seq[(Tid, Vector[Itemid])] = Vector(
-            (1, Vector(1, 2)),
-            (3, Vector(1, 2)),
-            (4, Vector(1)),
-            (7, Vector(1, 2)),
-            (8, Vector(1, 2)),
-            (11, Vector(2)),
-            (12, Vector(1)),
-            (16, Vector(1, 2)),
-            (19, Vector(3)),
-            (20, Vector(1, 2))
-        )
-        torelational(data, "platoonfail.tsv")
-        val res = CTM.run(spark = Some(sparkSession),
-            minsize = 2,
-            minsup = 3,
-            bin_s = 1,
-            timeScale = AbsoluteScale,
-            bin_t = 1,
-            returnResult = true,
-            debugData = data,
-            neighs = neigh(3, 7, 1, Int.MaxValue, true),
-            platoon = true
-        )
-        assert(res._2.toSet.equals(Set()), res._2.toSet.toString)
-    }
+//    @Test def Platoon2() = {
+//        val data: Seq[(Tid, Vector[Itemid])] = Vector(
+//            (1, Vector(1, 2, 3, 4, 5, 6)),
+//            (2, Vector(1, 2, 3)),
+//            (4, Vector(1, 2, 4)),
+//            (5, Vector(1, 2, 5)),
+//            (7, Vector(1, 2, 6))
+//        )
+//        torelational(data, "platoon2.tsv")
+//        val res = CTM.run(spark = Some(sparkSession),
+//            minsize = 2,
+//            minsup = 2,
+//            bin_s = 1,
+//            timeScale = AbsoluteScale,
+//            bin_t = 1,
+//            returnResult = true,
+//            debugData = data,
+//            neighs = neigh(3, 7, 1, Int.MaxValue, true),
+//            platoon = true
+//        )
+//        assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2))), res._2.toSet.toString)
+//    }
+//
+//    @Test def Platoon3() = {
+//        val data: Seq[(Tid, Vector[Itemid])] = Vector(
+//            (1, Vector(1, 2, 3, 4, 5, 6)),
+//            (2, Vector(1, 2, 3)),
+//            (4, Vector(1, 2, 4)),
+//            (5, Vector(1, 2, 5)),
+//            (7, Vector(1, 6))
+//        )
+//        torelational(data, "platoon3.tsv")
+//        val res = CTM.run(spark = Some(sparkSession),
+//            minsize = 2,
+//            minsup = 2,
+//            bin_s = 1,
+//            timeScale = AbsoluteScale,
+//            bin_t = 1,
+//            returnResult = true,
+//            debugData = data,
+//            neighs = neigh(3, 7, 1, Int.MaxValue, true),
+//            platoon = true
+//        )
+//        assert(res._2.toSet.equals(Set((RoaringBitmap.bitmapOf(1, 2, 3), 3, 2), (RoaringBitmap.bitmapOf(1, 2), 2, 4))), res._2.toSet.toString)
+//    }
+//
+//    @Test def Platoonfail() = {
+//        val data: Seq[(Tid, Vector[Itemid])] = Vector(
+//            (1, Vector(1, 2)),
+//            (3, Vector(1, 2)),
+//            (4, Vector(1)),
+//            (7, Vector(1, 2)),
+//            (8, Vector(1, 2)),
+//            (11, Vector(2)),
+//            (12, Vector(1)),
+//            (16, Vector(1, 2)),
+//            (19, Vector(3)),
+//            (20, Vector(1, 2))
+//        )
+//        torelational(data, "platoonfail.tsv")
+//        val res = CTM.run(spark = Some(sparkSession),
+//            minsize = 2,
+//            minsup = 3,
+//            bin_s = 1,
+//            timeScale = AbsoluteScale,
+//            bin_t = 1,
+//            returnResult = true,
+//            debugData = data,
+//            neighs = neigh(3, 7, 1, Int.MaxValue, true),
+//            platoon = true
+//        )
+//        assert(res._2.toSet.equals(Set()), res._2.toSet.toString)
+//    }
 
     @Test def Flock() = {
         val data: Seq[(Tid, Vector[Itemid])] = Vector(

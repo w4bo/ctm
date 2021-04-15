@@ -126,7 +126,9 @@ object CTM {
                 transactionTable = s"tmp_transactiontable$temporaryTableName".replace("-", "__") // Trajectories mapped to cells
                 cellToIDTable = s"tmp_celltoid$temporaryTableName".replace("-", "__") // Cells with ids
                 neighborhoodTable = s"tmp_neighborhood$temporaryTableName".replace("-", "__") // Neighborhoods
+                val inputDFtable = inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length) + "_temp"
                 L.info(s"""--- Writing to
+                       |        $inputDFtable
                        |        $summaryTable
                        |        $itemsetTable
                        |        $supportTable
@@ -140,6 +142,7 @@ object CTM {
                  * **************************************************************************************************************/
                 if (droptable) {
                     L.debug("Dropping tables.")
+                    sparkSession.sql(s"drop table if exists $DB_NAME.$inputDFtable")
                     sparkSession.sql(s"drop table if exists $DB_NAME.$transactionTable")
                     sparkSession.sql(s"drop table if exists $DB_NAME.$cellToIDTable")
                     sparkSession.sql(s"drop table if exists $DB_NAME.$neighborhoodTable")
@@ -148,7 +151,6 @@ object CTM {
                 // the transaction table is only generated once, skip the generation if already generated
                 if (!sparkSession.catalog.tableExists(DB_NAME, transactionTable)) {
                     // Create time bin from timestamp in a temporal table `inputDFtable`
-                    val inputDFtable = inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length) + "_temp"
                     L.debug(s"--- Getting data from $inTable...")
                     getData(sparkSession, inTable, inputDFtable, timeScale, bin_t, euclidean, bin_s)
                     sparkSession.sql(s"select * from $inputDFtable").show(linesToPrint)

@@ -253,10 +253,10 @@ class TestOnCluster {
         assertEquals(expectedClusters.size, cuteClusters._1)
     }
 
-    /** Test the recognition of a flock pattern. */
+    /** Test the recognition of a Convoy pattern. */
 
-    @Test def testFlockDetection(): Unit = {
-        val test_name = "FLOCK_DETECTION"
+    @Test def testConvoyDetection(): Unit = {
+        val test_name = "Convoy_DETECTION"
         // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t00\t00\t1", "01\t00\t00\t2", "01\t00\t00\t3", "01\t00\t00\t4", "01\t00\t00\t5", "01\t00\t00\t6", //
@@ -287,9 +287,9 @@ class TestOnCluster {
         assertEquals(expectedClusters.size, cuteClusters._1)
     }
 
-    /** Test the recognition of a flock pattern. */
-    @Test def testFlockDetectionFromPaper(): Unit = {
-        val test_name = "testFlockDetectionFromPaper"
+    /** Test the recognition of a Convoy pattern. */
+    @Test def testConvoyDetectionFromPaper(): Unit = {
+        val test_name = "testConvoyDetectionFromPaper"
         // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t1\t0\t1", "01\t2\t0\t1", "01\t3\t0\t2", "01\t1\t0\t3", "01\t1\t0\t4", "01\t2\t0\t5", "01\t3\t0\t6", "01\t1\t0\t7", //
@@ -314,10 +314,39 @@ class TestOnCluster {
         assertEquals(expectedClusters, cuteClusters._2.toSet)
     }
 
-    /** Test the recognition of a flock pattern. */
+    /** Test the recognition of a Convoy pattern. */
+    @Test def testConvoy(): Unit = {
+        val test_name = "testConvoyDetectionFromPaper"
+        // println(s"----$test_name----")
+        val inputSet: Array[String] = Array( //
+            "01\t0\t0\t1", "01\t0\t0\t1", "01\t3\t0\t2", "01\t0\t0\t3", "01\t0\t0\t4", "01\t0\t0\t5", "01\t0\t0\t6", "01\t0\t0\t7", //
+            "02\t0\t0\t1", "02\t0\t0\t1", "02\t4\t0\t2", "02\t0\t0\t3", "02\t0\t0\t4", "02\t0\t0\t5", "02\t0\t0\t6", "02\t0\t0\t7", //
+            "03\t0\t0\t1", "03\t1\t0\t1", "03\t0\t0\t2", "03\t1\t0\t3", "03\t0\t0\t4", "03\t1\t0\t5", "03\t0\t0\t6", "03\t1\t0\t7", //
+            "04\t1\t0\t1", "04\t0\t0\t1", "04\t1\t0\t2", "04\t0\t0\t3", "04\t1\t0\t4", "04\t0\t0\t5", "04\t1\t0\t6", "04\t0\t0\t7" //
+        )
+        val tableName = s"tmp_$test_name"
+        loadAndStoreDataset(inputSet, tableName, sparkSession)
+        val cuteClusters = CTM.run(spark = Some(sparkSession),
+            droptable = true,
+            inTable = tableName,
+            minsize = 2,
+            minsup = 4,
+            bin_s = 1,
+            timeScale = AbsoluteScale,
+            bin_t = 1,
+            eps_t = 1,
+            returnResult = true
+        )
+        val expectedClusters = Set(
+            (RoaringBitmap.bitmapOf(2, 3), 2, 6)
+        )
+        assertEquals(expectedClusters, cuteClusters._2.toSet)
+    }
 
-    @Test def testFlockDetectionFromPaperFail(): Unit = {
-        val test_name = "testFlockDetectionFromPaperFail"
+    /** Test the recognition of a Convoy pattern. */
+
+    @Test def testConvoyDetectionFromPaperFail(): Unit = {
+        val test_name = "testConvoyDetectionFromPaperFail"
         // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t1\t0\t1", "01\t3\t0\t2", "01\t1\t0\t3", "01\t1\t0\t4", "01\t2\t0\t5", "01\t3\t0\t6", "01\t1\t0\t7", //
@@ -442,9 +471,9 @@ class TestOnCluster {
         assertEquals(expectedClusters, cuteClusters._2.toSet)
     }
 
-    /** Check Flock patterns on Weekly based definition. */
-    @Test def testWeeklyFlockClusters(): Unit = {
-        val test_name = "WEEKLY_FLOCK_CHECK"
+    /** Check Convoy patterns on Weekly based definition. */
+    @Test def testWeeklyConvoyClusters(): Unit = {
+        val test_name = "WEEKLY_Convoy_CHECK"
         // println(s"----$test_name----")
         val sunday10PMStamp = 1578868341L
         val sunday11PMStamp = 1578871941L
@@ -462,7 +491,7 @@ class TestOnCluster {
         assertEquals(expectedClusters, cuteClusters._2.toSet)
     }
 
-    /** Check Flock patterns on Weekly based definition. */
+    /** Check Convoy patterns on Weekly based definition. */
     @Test def testWeeklySwarmClusters(): Unit = {
         val test_name = "WEEKLY_SWARM_CHECK"
         // println(s"----$test_name----")

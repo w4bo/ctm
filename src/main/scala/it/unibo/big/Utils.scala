@@ -1,6 +1,7 @@
 package it.unibo.big
 
 import org.apache.log4j.{Level, Logger}
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
 import org.apache.spark.util.LongAccumulator
@@ -9,6 +10,7 @@ import org.roaringbitmap.RoaringBitmap
 import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.{Files, Paths}
 import java.util.function.Consumer
+import scala.collection.mutable
 import scala.math._
 
 /**
@@ -60,21 +62,151 @@ object Utils {
         )
     )
 
+    def connectedComponent(sp: RoaringBitmap, supp: RoaringBitmap, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], isPlatoon: Boolean, returnComponents: Boolean): (Int, RoaringBitmap) = {
+        if (brdNeighborhood.isEmpty) {
+            return (supp.getCardinality, supp)
+        }
+        var c = 0 // size of the connected component
+        var isValidPlatoon = true // whether this is a valid platoon
+        val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
+        var cc: RoaringBitmap = RoaringBitmap.bitmapOf() // current connected component
+        val ccs: RoaringBitmap = RoaringBitmap.bitmapOf() // components accumulator
+        var maxc = if (isPlatoon) Int.MaxValue else Int.MinValue
+        sp.forEach(toJavaConsumer({ tile: Integer => { // for each tile in the support
+            if ( // if a connected component of at least minsup has not been found && the tile has been not visited yet
+                (returnComponents && (!isPlatoon || isValidPlatoon) || // to return the result, I cannot stop to minsup
+                    !returnComponents && (!isPlatoon && c < minsup || isPlatoon && isValidPlatoon)) && !marked.contains(tile)
+            ) {
+                // reset the connected component
+                c = 0
+                cc = RoaringBitmap.bitmapOf()
+
+                def connectedComponentRec(i: Int): Unit = { // recursive function
+                    marked += i // add the tile to the explored set
+                    c += 1 // increase the number of adjacent tiles
+                    if (returnComponents) {
+                        cc.add(i)
+                    } // add the adjacent tile
+                    // for each neighbor of the current tile, if the neighbor is in the sItemset support and it has been not explored yet ...
+                    val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
+                    // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
+                    if (neighborhood.isDefined) {
+                        neighborhood.get.forEach(toJavaConsumer(i =>
+                            if ((returnComponents || c < minsup) && !marked.contains(i) && supp.contains(i)) {
+                                connectedComponentRec(i)
+                            }))
+                    }
+                }
+
+                connectedComponentRec(tile)
+                isValidPlatoon = c >= minsup
+                // add the connected component if big enough
+                maxc = if (isPlatoon) Math.min(c, maxc) else Math.max(c, maxc)
+                if (returnComponents && c >= minsup) {
+                    ccs.or(cc)
+                }
+            }
+        }
+        }))
+        (maxc, ccs)
+    }
+
+    /**
+     * @param CT          current transactions
+     * @param RT          remaining transactions
+     * @param trueSupport true itemset support
+     * @return true if the pattern is non redundant
+     */
+    def isNonRedundant(CT: RoaringBitmap, RT: RoaringBitmap, trueSupport: RoaringBitmap): Boolean = {
+        CT.contains(trueSupport.getIntIterator.next()) && RoaringBitmap.andNot(trueSupport, RT).getCardinality == CT.getCardinality
+    }
+
+    /**
+     * @param sItemset trajectory S-itemset
+     * @param CT       current transactions
+     * @param RT       remaining transactions
+     * @return true if the S-itemset can potentially produce a valid co-movement pattern
+     */
+    def isExtendable(sItemset: RoaringBitmap, CT: RoaringBitmap, RT: RoaringBitmap, trueSupport: RoaringBitmap, minsize: Int, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]]): Boolean = {
+        sItemset.getCardinality >= minsize && isValid(RoaringBitmap.or(CT, RT), minsup, brdNeighborhood) && CT.contains(trueSupport.getIntIterator.next()) && isNonRedundant(CT, RT, trueSupport)
+    }
+
+    /**
+     * Verify if the given set of tiles satisfies the length and shape constraints.
+     * Length and shape constraints for swarm/co-location: tiles.getCardinality >= minsup
+     * Length and shape constraints for convoy/flow: tiles contains at least a connected component of cardinality mLen
+     *
+     * @param tiles           a set of tiles
+     * @param mLen            minimum support
+     * @param brdNeighborhood neighborhood map
+     * @return true if the given set of tiles satisfies the length and shape constraints
+     */
+    def isValid(tiles: RoaringBitmap, mLen: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]]): Boolean = {
+        brdNeighborhood.isEmpty && tiles.getCardinality >= mLen || brdNeighborhood.nonEmpty && connectedComponent2(tiles, mLen, brdNeighborhood)._1 >= mLen
+    }
+
+    def connectedComponent2(sp: RoaringBitmap, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], returnComponents: Boolean = false): (Int, RoaringBitmap) = {
+        if (brdNeighborhood.isEmpty) {
+            return (sp.getCardinality, sp)
+        }
+        var c = 0 // size of the connected component
+        val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
+        var cc: RoaringBitmap = RoaringBitmap.bitmapOf() // current connected component
+        val ccs: RoaringBitmap = RoaringBitmap.bitmapOf() // components accumulator
+        var maxc = Int.MinValue
+        sp.forEach(toJavaConsumer({ tile: Integer => { // for each tile in the support
+            // if a connected component of at least minsup has not been found && the tile has been not visited yet
+            if ((returnComponents || c < minsup) && !marked.contains(tile)) {
+                c = 0 // reset the connected component
+                cc = RoaringBitmap.bitmapOf()
+
+                def connectedComponentRec(i: Int): Unit = { // recursive function
+                    marked += i // add the tile to the explored set
+                    c += 1 // increase the number of adjacent tiles
+                    if (returnComponents) {
+                        // add the adjacent tile
+                        cc.add(i)
+                    }
+                    // for each neighbor of the current tile, if the neighbor has been not explored yet ...
+                    val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
+                    // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
+                    if (neighborhood.isDefined) {
+                        neighborhood.get.forEach(toJavaConsumer(i =>
+                            if ((returnComponents || c < minsup) && !marked.contains(i) && sp.contains(i)) {
+                                connectedComponentRec(i)
+                            }))
+                    }
+                }
+
+                connectedComponentRec(tile)
+                // add the connected component if big enough
+                maxc = Math.max(c, maxc)
+                if (returnComponents && c >= minsup) {
+                    ccs.or(cc)
+                }
+            }
+        }
+        }))
+        (maxc, ccs)
+    }
+
     /** Create a file at the specified path if it does not exists and write the stats tsv header. */
     def writeStatsToFile(fileName: String, inTable: String, minsize: Int, minsup: Int, nItemsets: Long,
                          storage_thr: Int, repfreq: Int, limit: Int, // EFFICIENCY PARAMETERS
                          nexecutors: Int, ncores: Int, maxram: String, // SPARK CONFIGURATION
                          timescale: TemporalScale, bin_t: Int, eps_t: Double,
                          bin_s: Int, eps_s: Double, // EFFECTIVENESS PARAMETERS
-                         nTransactions: Long, brdTrajInCell_bytes: Int, brdNeighborhood_bytes: Int, acc: LongAccumulator, acc2: LongAccumulator): Unit = {
+                         nTransactions: Long, brdTrajInCell_bytes: Int, brdNeighborhood_bytes: Int,
+                         acc: LongAccumulator, acc2: LongAccumulator, accmLen: LongAccumulator,
+                         accmCrd: LongAccumulator, accmSup: LongAccumulator): Unit = {
         val fileExists = Files.exists(Paths.get(fileName))
         val outputFile = new File(fileName)
         outputFile.createNewFile()
         val bw = new BufferedWriter(new FileWriter(fileName, fileExists))
         if (!fileExists) {
-            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,nTransactions,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s,exploredpatterns,exploredpatterns2\n".replace("_", "").toLowerCase)
+            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,nTransactions,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s,exploredpatterns,exploredpatterns2,accmLen,accmCrd,accmSup\n".replace("_", "").toLowerCase)
         }
-        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s,${acc.value},${acc2.value}\n")
+        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s,${acc.value},${acc2.value},${accmLen.value},${accmCrd.value},${accmSup.value}\n")
         bw.close()
     }
 

@@ -38,7 +38,9 @@ object TemporalCellBuilder {
                |from $tableName
                |""".stripMargin
         )
-            .createOrReplaceTempView(outTable)
+            .write.mode(SaveMode.ErrorIfExists)
+            .saveAsTable(outTable)
+            //.createOrReplaceTempView(outTable)
         // TODO: BE AWARE, LIMIT CREATES A SINGLE PARTITION
     }
 
