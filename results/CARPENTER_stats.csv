@@ -1,0 +1,6 @@
+dataset,minsup,mincard,iterations,itemsets,time(ms)
+resources/closed0_trans,1,1,10,0,19
+closed0_trans,1,1,45,7,31
+closed0_trans,1,1,45,7,25
+milan_dataset.csv,12,100,856820414,6800,10409887
+milan_dataset.csv,10,100,859461407,365320,10456053

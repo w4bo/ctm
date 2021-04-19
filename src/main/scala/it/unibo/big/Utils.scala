@@ -206,7 +206,7 @@ object Utils {
         if (!fileExists) {
             bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,nTransactions,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s,exploredpatterns,exploredpatterns2,accmLen,accmCrd,accmSup\n".replace("_", "").toLowerCase)
         }
-        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s,${acc.value},${acc2.value},${accmLen.value},${accmCrd.value},${accmSup.value}\n")
+        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s,${acc.value},${acc2.value},${1.0 * accmLen.value / acc2.value},${1.0 * accmCrd.value / acc2.value},${1.0 * accmSup.value / acc2.value}\n")
         bw.close()
     }
 

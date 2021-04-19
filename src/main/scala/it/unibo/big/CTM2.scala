@@ -11,7 +11,6 @@ import org.roaringbitmap.RoaringBitmap
 
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import scala.collection.mutable
 
 class CTM2 {}
 
@@ -74,8 +73,6 @@ object CTM2 {
             })
             res
         }
-
-
 
         /**
          * For test purpose only. Do not invoke this function otherwise
@@ -175,7 +172,7 @@ object CTM2 {
                                             }
                                         }
                                         // For test purpose only, comment this function otherwise
-                                        checkFilters(lCluster, lClusterSupport, XplusY, R, key)
+                                        // checkFilters(lCluster, lClusterSupport, XplusY, R, key)
                                     }
                                     }))
                                     countToExtend.add(L.length)
@@ -239,7 +236,6 @@ object CTM2 {
             // Remove useless checkpoints from memory
             spark.sparkContext.getPersistentRDDs.keys.toVector.sorted.dropRight(1).foreach(id => spark.sparkContext.getPersistentRDDs(id).unpersist(true))
         } while (countToExtend.value > 0)
-
 
         val res: Array[(RoaringBitmap, Int, Int)] =
             if (!returnResult) {
