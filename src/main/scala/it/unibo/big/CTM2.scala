@@ -10,16 +10,16 @@ import org.apache.spark.storage.StorageLevel
 import org.roaringbitmap.RoaringBitmap
 
 import java.text.SimpleDateFormat
-import java.util.Calendar
+import java.util.{Calendar, UUID}
 
 class CTM2 {}
 
 object CTM2 {
     private val L = Logger.getLogger(classOf[CTM2])
 
-    def CTM(spark: SparkSession, trans: RDD[(Tid, Itemid)], brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], minsup: Int, minsize: Int, isPlatoon: Boolean): (Long, Array[(RoaringBitmap, Tid, Tid)]) = {
+    def CTM(spark: SparkSession, trans: RDD[(Tid, Itemid)], brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], mSup: Int, mCrd: Int, isPlatoon: Boolean): (Long, Array[(RoaringBitmap, Tid, Tid)], Long) = {
         if (trans.count() == 0) {
-            return (0, Array())
+            return (0, Array(), 0)
         }
         val acc = spark.sparkContext.longAccumulator
         val acc2 = spark.sparkContext.longAccumulator
@@ -83,13 +83,13 @@ object CTM2 {
          * @param key
          */
         def checkFilters(lCluster: RoaringBitmap, lClusterSupport: RoaringBitmap, XplusY: RoaringBitmap, R: RoaringBitmap, key: Integer): Unit = {
-            if (!isValid(RoaringBitmap.or(XplusY, R), minsup, brdNeighborhood)) {
+            if (!isValid(RoaringBitmap.or(XplusY, R), mSup, brdNeighborhood)) {
                 accmLen.add(1)
             }
             val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // compute the new co-movement pattern
             val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1) // update the covered transactions
             val newClusterSupport = support(c, Some(lClusterSupport)) // compute its support
-            if (RoaringBitmap.and(lCluster, brdTrajInCell.value(key)).getCardinality < minsize) {
+            if (RoaringBitmap.and(lCluster, brdTrajInCell.value(key)).getCardinality < mCrd) {
                 accmCrd.add(1)
             }
             if (!isNonRedundant(XplusYplusKey, R, newClusterSupport)) { // if it is *potentially* a valid co-movement pattern...
@@ -113,11 +113,11 @@ object CTM2 {
                 .mapValues({ trajId: Itemid => RoaringBitmap.bitmapOf(trajId) }) // This map the CellID -> TrajID converting the TrajID into a RoraingBitMap
                 .reduceByKey((aTrajectory, bTrajectory) => RoaringBitmap.or(aTrajectory, bTrajectory)) // group by all the trajectories in the same cell
                 .flatMap({ case (key: Tid, lCluster: RoaringBitmap) => // Now this is a Real TT' as intended by John Carpenter itself
-                    val X: RoaringBitmap = RoaringBitmap.bitmapOf(key) // current support
+                    val X: RoaringBitmap = RoaringBitmap.bitmapOf(key) // current transaction
                     val R: RoaringBitmap = RoaringBitmap.bitmapOf(brdTrajInCell.value.filter({ case (otherKey: Tid, _: RoaringBitmap) => key < otherKey }).toArray.map(_._1.toInt): _*) // select only the new cells
                     Array((lCluster, true, X, R, support(lCluster)))
                 })
-                .filter({ case (i: RoaringBitmap, extend: Boolean, cs: RoaringBitmap, sp: RoaringBitmap, ts: RoaringBitmap) => isExtendable(i, cs, sp, ts, minsize, minsup, brdNeighborhood) })
+                .filter({ case (i: RoaringBitmap, extend: Boolean, cs: RoaringBitmap, sp: RoaringBitmap, ts: RoaringBitmap) => isExtendable(i, cs, sp, ts, mCrd, mSup, brdNeighborhood) })
                 .localCheckpoint()
         val clusterCount = clusters.count()
         println(s"\n--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Init clusters: $clusterCount")
@@ -126,7 +126,6 @@ object CTM2 {
         /* *****************************************************************************************************************
          * END - Creating the transactional dataset
          * ****************************************************************************************************************/
-
 
         val empty: RoaringBitmap = RoaringBitmap.bitmapOf()
         do {
@@ -146,37 +145,33 @@ object CTM2 {
                                 acc.add(1)
                                 var L: Array[CarpenterRowSet] = Array() // accumulator
                                 // cannot check this after connectedComponent(RoaringBitmap.or(XplusY, R)), otherwise platoon fails
-                                if (isValid(lClusterSupport, minsup, brdNeighborhood)) { // if is a valid co-movement pattern...
+                                if (isValid(lClusterSupport, mSup, brdNeighborhood)) { // if is a valid co-movement pattern...
                                     countOk.add(1) // update the counter
                                     countToExtend.add(-1) // decrease the counter to extend to avoid double counting (since later L.size will contain this pattern)
                                     L +:= (lCluster, false, empty, empty, empty)
                                 }
                                 val Y: RoaringBitmap = RoaringBitmap.and(lClusterSupport, r) // tiles shared by all transactions
-                                val XplusY: RoaringBitmap = RoaringBitmap.or(x, Y) // ... are directly added to the current support
-                                // var R: RoaringBitmap = RoaringBitmap.and(RoaringBitmap.andNot(r, Y), allCellsInTrajectories(lCluster)) // ... and removed from the search space
-                                var R: RoaringBitmap = RoaringBitmap.andNot(r, Y)
-                                // if at least a connected component exists
-                                val conncomp = connectedComponent2(RoaringBitmap.or(XplusY, R), minsup, brdNeighborhood)
-                                if (conncomp._1 >= minsup) {
-                                    R.forEach(toJavaConsumer({ key: Integer => {
-                                        acc2.add(1)
-                                        if (isValid(RoaringBitmap.or(XplusY, R), minsup, brdNeighborhood)) { // if CT \cup RT contains a potentially valid pattern
-                                            R = RoaringBitmap.remove(R, key, key + 1) // reduce the remaining transactions
-                                            val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1) // update the covered transactions
-                                            val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // compute the new co-movement pattern
-                                            if (c.getCardinality >= minsize) { // if the pattern has a valid cardinality
-                                                val newClusterSupport: RoaringBitmap = support(c, Some(lClusterSupport)) // compute its support
-                                                if (isNonRedundant(XplusYplusKey, R, newClusterSupport)) { // if it is *potentially* a valid co-movement pattern...
-                                                    L +:= (c, true, XplusYplusKey, R, newClusterSupport) // store it
-                                                }
+                                val XplusY: RoaringBitmap = RoaringBitmap.or(x, Y) // ... are directly added to the current transaction
+                                val R: RoaringBitmap = RoaringBitmap.andNot(r, Y) // ... and remove from the remaining transactions
+                                var Rnew: RoaringBitmap = R
+                                R.forEach(toJavaConsumer({ key: Integer => {
+                                    acc2.add(1)
+                                    if (isValid(RoaringBitmap.or(XplusY, Rnew), mSup, brdNeighborhood)) { // if CT \cup RT contains a potentially valid pattern
+                                        Rnew = RoaringBitmap.remove(Rnew, key, key + 1) // reduce the remaining transactions
+                                        val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1) // update the covered transactions
+                                        val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // compute the new co-movement pattern
+                                        if (c.getCardinality >= mCrd) { // if the pattern has a valid cardinality
+                                            val newClusterSupport: RoaringBitmap = support(c, Some(lClusterSupport)) // compute its support
+                                            if (isNonRedundant(XplusYplusKey, Rnew, newClusterSupport)) { // if it is *potentially* a valid co-movement pattern...
+                                                L +:= (c, true, XplusYplusKey, Rnew, newClusterSupport) // store it
                                             }
                                         }
-                                        // For test purpose only, comment this function otherwise
-                                        // checkFilters(lCluster, lClusterSupport, XplusY, R, key)
                                     }
+                                    // For test purpose only, comment this function otherwise
+                                    // checkFilters(lCluster, lClusterSupport, XplusY, R, key)
+                                }
                                     }))
                                     countToExtend.add(L.length)
-                                }
                                 L
                             } else {
                                 if (!lCluster.hasRunCompression) lCluster.runOptimize()
@@ -197,20 +192,20 @@ object CTM2 {
                 if (storage_thr > 0) {
                     L.debug(s"--- ${new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(Calendar.getInstance().getTime)} Writing itemsets to the database")
                     import spark.implicits._
-                    val towrite: RDD[(Int, RoaringBitmap)] = clusters
+                    val towrite: RDD[(String, RoaringBitmap)] = clusters
                         .filter({ case (_: RoaringBitmap, extend: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => !extend })
-                        .map(sItemset => (sItemset._1.hashCode(), sItemset._1))
+                        .map(sItemset => (UUID.randomUUID().toString, sItemset._1))
                         .cache()
 
                     towrite
-                        .map({ case (uid: Int, itemset: RoaringBitmap) =>
+                        .map({ case (uid: String, itemset: RoaringBitmap) =>
                             (uid, itemset.getCardinality, support(itemset, Option.empty).getCardinality)
                         })
                         .toDF("itemsetid", "size", "support")
                         .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(summaryTable)
 
                     towrite
-                        .flatMap({ case (uid: Int, itemset: RoaringBitmap) =>
+                        .flatMap({ case (uid: String, itemset: RoaringBitmap) =>
                             itemset.toArray.map(i => {
                                 require(i >= 0, "itemid is below zero")
                                 (uid, i)
@@ -220,7 +215,7 @@ object CTM2 {
                         .write.mode(if (countStored == 0) SaveMode.Overwrite else SaveMode.Append).saveAsTable(itemsetTable)
 
                     towrite
-                        .flatMap({ case (uid: Int, itemset: RoaringBitmap) =>
+                        .flatMap({ case (uid: String, itemset: RoaringBitmap) =>
                             support(itemset, Option.empty).toArray.map(i => {
                                 require(i >= 0, "tileid is below zero")
                                 (uid, i)
@@ -246,10 +241,10 @@ object CTM2 {
                     .map({ case (i: RoaringBitmap, _: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => Array[(RoaringBitmap, Int, Int)]((i, i.getCardinality, support(i).getCardinality)) })
                     .fold(Array.empty[(RoaringBitmap, Int, Int)])(_ ++ _)
             }
-        writeStatsToFile(outTable2, inTable, minsize, minsup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum, acc, acc2, accmLen, accmCrd, accmSup)
+        writeStatsToFile(outTable2, inTable, mCrd, mSup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum, acc, acc2, accmLen, accmCrd, accmSup)
         spark.sparkContext.getPersistentRDDs.foreach(i => i._2.unpersist())
         spark.catalog.clearCache()
         spark.sqlContext.clearCache()
-        (nItemsets, res)
+        (nItemsets, res, acc2.value)
     }
 }

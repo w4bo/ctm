@@ -128,7 +128,7 @@ object Utils {
      * @return true if the S-itemset can potentially produce a valid co-movement pattern
      */
     def isExtendable(sItemset: RoaringBitmap, CT: RoaringBitmap, RT: RoaringBitmap, trueSupport: RoaringBitmap, minsize: Int, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]]): Boolean = {
-        sItemset.getCardinality >= minsize && isValid(RoaringBitmap.or(CT, RT), minsup, brdNeighborhood) && CT.contains(trueSupport.getIntIterator.next()) && isNonRedundant(CT, RT, trueSupport)
+        sItemset.getCardinality >= minsize && isValid(RoaringBitmap.or(CT, RT), minsup, brdNeighborhood) && isNonRedundant(CT, RT, trueSupport)
     }
 
     /**
@@ -145,7 +145,7 @@ object Utils {
         brdNeighborhood.isEmpty && tiles.getCardinality >= mLen || brdNeighborhood.nonEmpty && connectedComponent2(tiles, mLen, brdNeighborhood)._1 >= mLen
     }
 
-    def connectedComponent2(sp: RoaringBitmap, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], returnComponents: Boolean = false): (Int, RoaringBitmap) = {
+    private def connectedComponent2(sp: RoaringBitmap, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], returnComponents: Boolean = false): (Int, RoaringBitmap) = {
         if (brdNeighborhood.isEmpty) {
             return (sp.getCardinality, sp)
         }

@@ -96,23 +96,27 @@ object TemporalCellBuilder {
      */
     def mapToReferenceSystem(sparkSession: SparkSession, inTable: String, transactionTable: String, minSize: Int, minSup: Int, limit: Int): Unit = {
         import sparkSession.sqlContext.implicits._
-        var rdd = sparkSession.sql(s"select $USER_ID_FIELD, $TRAJECTORY_ID_FIELD, $LATITUDE_FIELD_NAME, $LONGITUDE_FIELD_NAME, $TIME_BUCKET_COLUMN_NAME from $inTable")
+        var rdd: RDD[((String, String, Long), Array[(Double, Double, Long)])] = sparkSession.sql(s"select $USER_ID_FIELD, $TRAJECTORY_ID_FIELD, $LATITUDE_FIELD_NAME, $LONGITUDE_FIELD_NAME, $TIME_BUCKET_COLUMN_NAME from $inTable")
             .rdd
             .map(row => ((row.get(0).asInstanceOf[String], row.get(1).asInstanceOf[String]), Array((row.get(2).asInstanceOf[Double], row.get(3).asInstanceOf[Double], row.get(4).asInstanceOf[Long]))))
             .reduceByKey(_ ++ _)
+            .sortByKey()
+            .zipWithIndex()
+            .map(i => ((i._1._1._1, i._1._1._2, i._2), i._1._2))
+            .filter(i => i._1._3 <= limit)
 
         var prevcount = -1L
         var loop = true
         while (loop) {
             rdd = rdd
-                .filter({ case ((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]) => locations.length >= minSup })
-                .flatMap({ case ((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]) =>
-                    locations.map({ case (latitude: Double, longitude: Double, timestamp: Long) => ((latitude, longitude, timestamp), Array((userid, trajectoryid))) })
+                .filter({ case ((userid: String, trajectoryid: String, itemid: Long), locations: Array[(Double, Double, Long)]) => locations.length >= minSup })
+                .flatMap({ case ((userid: String, trajectoryid: String, itemid: Long), locations: Array[(Double, Double, Long)]) =>
+                    locations.map({ case (latitude: Double, longitude: Double, timestamp: Long) => ((latitude, longitude, timestamp), Array((userid, trajectoryid, itemid))) })
                 })
                 .reduceByKey(_ ++ _)
-                .filter({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(String, String)]) => trajectories.length >= minSize })
-                .flatMap({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(String, String)]) =>
-                    trajectories.map({ case (userid, trajectoryid) => ((userid, trajectoryid), Array((latitude, longitude, timestamp))) })
+                .filter({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(String, String, Long)]) => trajectories.length >= minSize })
+                .flatMap({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(String, String, Long)]) =>
+                    trajectories.map({ case (userid, trajectoryid, itemid: Long) => ((userid, trajectoryid, itemid), Array((latitude, longitude, timestamp))) })
                 })
                 .reduceByKey(_ ++ _)
                 .cache()
@@ -123,9 +127,7 @@ object TemporalCellBuilder {
         }
 
         rdd
-            .zipWithIndex()
-            .filter(t => t._2 <= limit)
-            .flatMap({ case (((userid: String, trajectoryid: String), locations: Array[(Double, Double, Long)]), itemid: Long) =>
+            .flatMap({ case ((userid: String, trajectoryid: String, itemid: Long), locations: Array[(Double, Double, Long)]) =>
                 locations.map({ case (latitude: Double, longitude: Double, timestamp: Long) => ((latitude, longitude, timestamp), Array((itemid.toInt, userid, trajectoryid))) })
             })
             .reduceByKey(_ ++ _)

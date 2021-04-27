@@ -72,7 +72,7 @@ object CTM {
             timeScale: TemporalScale, bin_t: Int = 1, eps_t: Double = Double.PositiveInfinity,
             bin_s: Int, eps_s: Double = Double.PositiveInfinity, // EFFECTIVENESS PARAMETERS
             debugData: Seq[(Tid, Vector[Itemid])] = Seq(), neighs: Map[Tid, RoaringBitmap] = Map(), spark: Option[SparkSession] = None, // INPUTS
-            returnResult: Boolean = false, droptable: Boolean = false, euclidean: Boolean = false): (Long, Array[(RoaringBitmap, Int, Int)]) = {
+            returnResult: Boolean = false, droptable: Boolean = false, euclidean: Boolean = false): (Long, Array[(RoaringBitmap, Int, Int)], Long) = {
         this.inTable = inTable
         this.debug = debugData.nonEmpty
         this.returnResult = returnResult
@@ -126,7 +126,7 @@ object CTM {
                 transactionTable = s"tmp_transactiontable$temporaryTableName".replace("-", "__") // Trajectories mapped to cells
                 cellToIDTable = s"tmp_celltoid$temporaryTableName".replace("-", "__") // Cells with ids
                 neighborhoodTable = s"tmp_neighborhood$temporaryTableName".replace("-", "__") // Neighborhoods
-                val inputDFtable = inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length) + "_temp"
+                val inputDFtable = s"tmp_abstract$temporaryTableName".replace("-", "__")
                 L.info(s"""--- Writing to
                        |        $inputDFtable
                        |        $summaryTable

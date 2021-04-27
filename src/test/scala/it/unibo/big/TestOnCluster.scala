@@ -16,7 +16,6 @@ object TestOnCluster {
 }
 
 class TestOnCluster {
-
     type cuteCluster = (RoaringBitmap, Int, Int)
 
     def loadAndStoreDataset(fileLines: Array[String], tempTableName: String, spark: SparkSession): Unit = {
@@ -35,6 +34,37 @@ class TestOnCluster {
         res9 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
         assertEquals(2466, res9._1)
         assertTrue(2466 > res9._2.length)
+    }
+
+    @Test def testDB3(): Unit = {
+        var sup = 27
+        var continue = true
+        var prevData = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = sup, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
+        while (continue) {
+            continue &= prevData._2.nonEmpty
+            val newData = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = sup + 1, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
+            assertTrue(prevData._1 > newData._1)
+            assertEquals(prevData._2.length, prevData._2.toSet.size)
+            assertEquals(newData._2.length, newData._2.toSet.size)
+            assertEquals(newData._2.toSet - prevData._2.toSet, Set())
+            assertTrue(prevData._3 > newData._3)
+            prevData = newData
+            sup += 1
+        }
+    }
+
+    @Test def testDB2(): Unit = {
+        val res25 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 25, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
+        val res24 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 24, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
+        assertTrue(res25 < res24)
+        val res23 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 23, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
+        assertTrue(res24 < res23)
+        val res22 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 22, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
+        assertTrue(res23 < res22)
+        val res21 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 21, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
+        assertTrue(res22 < res21)
+        val res20 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 20, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
+        assertTrue(res21 < res20)
     }
 
     /**
@@ -71,7 +101,6 @@ class TestOnCluster {
     /** Check that contiguity works also with relaxed time constrains */
     @Test def testSmootherContiguityClusters(): Unit = {
         val test_name = "SMOOTHER_CONTIGUITY_CHECK"
-        // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t4", "01\t0\t0\t6", //
             "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4", "02\t0\t0\t6")
@@ -85,7 +114,6 @@ class TestOnCluster {
     /** Check that contiguity works also with relaxed time constrains. */
     @Test def testSmootherContiguityTwoThresholdClusters(): Unit = {
         val test_name = "SMOOTHER_CONTIGUITY_TWO_CHECK"
-        // println(s"----$test_name----")
         val inputSet: Array[String] =
             Array( //
                 "01\t0\t0\t1", //
@@ -108,7 +136,6 @@ class TestOnCluster {
      */
     @Test def testSmootherContiguityClustersNOResult(): Unit = {
         val test_name = "SMOOTHER_CONTIGUITY_CHECK_NO_RESULT"
-        // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t5", "01\t0\t0\t7", //
             "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t5", "02\t0\t0\t7")
@@ -131,7 +158,6 @@ class TestOnCluster {
     /** This test include a cell with an superior ID that contains the pattern required but is excluded for some spatio-temporal reason. */
     @Test def testExternalNeighbourClusters(): Unit = {
         val test_name = "EXTERNAL_NEIGHBOUR_CHECK"
-        // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t10\t10\t1", "01\t0\t0\t3", "01\t0\t0\t4", "01\t0\t0\t5", //
             "02\t10\t10\t1", "02\t0\t0\t3", "02\t0\t0\t4", "02\t0\t0\t5")
@@ -158,7 +184,6 @@ class TestOnCluster {
      */
     @Test def testExternalNeighbourInsideTheIDPathClusters(): Unit = {
         val test_name = "EXTERNAL_PATH_NEIGHBOUR_CHECK"
-        // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t10\t10\t1", "01\t0\t0\t3", "01\t10\t10\t4", "01\t10\t10\t5", //
             "02\t10\t10\t1", "02\t0\t0\t3", "02\t10\t10\t4", "02\t10\t10\t5")
@@ -185,8 +210,6 @@ class TestOnCluster {
      */
     @Test def testTwoSplitsClusters(): Unit = {
         val test_name = "TWO_SPLITS_CHECK"
-        // println(s"----$test_name----")
-
         val inputSet: Array[String] = Array(
             "01\t0\t0\t1", //
             "01\t0\t0\t2", //
@@ -216,11 +239,8 @@ class TestOnCluster {
     /**
      * Test the recognition of a Swarm pattern.
      */
-
     @Test def testSwarmDetection(): Unit = {
         val test_name = "SWARM_DETECTION"
-        // println(s"----$test_name----")
-
         val inputSet: Array[String] = Array(
             "01\t00\t00\t1", "01\t00\t00\t2", "01\t00\t00\t3", "01\t00\t00\t4", "01\t00\t00\t5", "01\t00\t00\t6",
             "02\t00\t00\t1", "02\t00\t00\t2", "02\t10\t10\t3", "02\t00\t00\t4", "02\t00\t00\t5", "02\t05\t05\t6",
@@ -249,15 +269,12 @@ class TestOnCluster {
             (RoaringBitmap.bitmapOf(3, 4), 2, 4),
             (RoaringBitmap.bitmapOf(4, 5), 2, 4)
         )
-        // assertEquals(expectedClusters, cuteClusters._2.toSet)
         assertEquals(expectedClusters.size, cuteClusters._1)
     }
 
     /** Test the recognition of a Convoy pattern. */
-
     @Test def testConvoyDetection(): Unit = {
         val test_name = "Convoy_DETECTION"
-        // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t00\t00\t1", "01\t00\t00\t2", "01\t00\t00\t3", "01\t00\t00\t4", "01\t00\t00\t5", "01\t00\t00\t6", //
             "02\t00\t00\t1", "02\t00\t00\t2", "02\t10\t10\t3", "02\t00\t00\t4", "02\t00\t00\t5", "02\t05\t05\t6", //
@@ -283,14 +300,12 @@ class TestOnCluster {
             (RoaringBitmap.bitmapOf(2, 3), 2, 3),
             (RoaringBitmap.bitmapOf(4, 5), 2, 3)
         )
-        // assertEquals(expectedClusters, cuteClusters._2.toSet)
         assertEquals(expectedClusters.size, cuteClusters._1)
     }
 
     /** Test the recognition of a Convoy pattern. */
     @Test def testConvoyDetectionFromPaper(): Unit = {
         val test_name = "testConvoyDetectionFromPaper"
-        // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t1\t0\t1", "01\t2\t0\t1", "01\t3\t0\t2", "01\t1\t0\t3", "01\t1\t0\t4", "01\t2\t0\t5", "01\t3\t0\t6", "01\t1\t0\t7", //
             "02\t1\t0\t1", "02\t2\t0\t1", "02\t3\t0\t2", "02\t1\t0\t3", "02\t2\t0\t4", "02\t3\t0\t5", "02\t3\t0\t6", "02\t1\t0\t7" //
@@ -317,7 +332,6 @@ class TestOnCluster {
     /** Test the recognition of a Convoy pattern. */
     @Test def testConvoy(): Unit = {
         val test_name = "testConvoyDetectionFromPaper"
-        // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t0\t0\t1", "01\t0\t0\t1", "01\t3\t0\t2", "01\t0\t0\t3", "01\t0\t0\t4", "01\t0\t0\t5", "01\t0\t0\t6", "01\t0\t0\t7", //
             "02\t0\t0\t1", "02\t0\t0\t1", "02\t4\t0\t2", "02\t0\t0\t3", "02\t0\t0\t4", "02\t0\t0\t5", "02\t0\t0\t6", "02\t0\t0\t7", //
@@ -344,10 +358,8 @@ class TestOnCluster {
     }
 
     /** Test the recognition of a Convoy pattern. */
-
     @Test def testConvoyDetectionFromPaperFail(): Unit = {
         val test_name = "testConvoyDetectionFromPaperFail"
-        // println(s"----$test_name----")
         val inputSet: Array[String] = Array( //
             "01\t1\t0\t1", "01\t3\t0\t2", "01\t1\t0\t3", "01\t1\t0\t4", "01\t2\t0\t5", "01\t3\t0\t6", "01\t1\t0\t7", //
             "02\t1\t0\t1", "02\t3\t0\t2", "02\t1\t0\t3", "02\t2\t0\t4", "02\t3\t0\t5", "02\t3\t0\t6", "02\t1\t0\t7" //
@@ -374,8 +386,6 @@ class TestOnCluster {
      */
     @Test def testGroupDetection(): Unit = {
         val test_name = "GROUP_DETECTION"
-        // println(s"----$test_name----")
-
         val inputSet: Array[String] = Array( //
             "01\t00\t00\t1", "01\t00\t00\t2", "01\t00\t00\t3", "01\t00\t00\t4", "01\t00\t00\t5", "01\t00\t00\t6", //
             "02\t00\t00\t1", "02\t00\t00\t2", "02\t10\t10\t3", "02\t00\t00\t4", "02\t00\t00\t5", "02\t05\t05\t6", //
@@ -404,13 +414,11 @@ class TestOnCluster {
             (RoaringBitmap.bitmapOf(3, 4), 2, 3),
             (RoaringBitmap.bitmapOf(4, 5), 2, 4)
         )
-        // assertEquals(expectedClusters, cuteClusters._2.toSet)
         assertEquals(expectedClusters.size, cuteClusters._1)
     }
 
     @Test def testWeeklyContiguityData(): Unit = {
         val test_name = "WEEKLY_CONTIGUITY_DETECTION"
-        // println(s"----$test_name----")
         val monday10AMStamp = 1578910464L
         val monday11AMStamp = 1578914064L
         val monday12AMStamp = 1578917664L
@@ -444,7 +452,6 @@ class TestOnCluster {
      */
     @Test def testWeeklySmootherContiguityClusters(): Unit = {
         val test_name = "WEEKLY_SMOOTHER_CONTIGUITY_CHECK"
-        // println(s"----$test_name----")
         val monday10AMStamp = 1578910464L
         val monday11AMStamp = 1578914064L
         val monday13PMStamp = 1578921264L
@@ -474,7 +481,6 @@ class TestOnCluster {
     /** Check Convoy patterns on Weekly based definition. */
     @Test def testWeeklyConvoyClusters(): Unit = {
         val test_name = "WEEKLY_Convoy_CHECK"
-        // println(s"----$test_name----")
         val sunday10PMStamp = 1578868341L
         val sunday11PMStamp = 1578871941L
         val monday01AMStamp = 1578879141L
@@ -494,7 +500,6 @@ class TestOnCluster {
     /** Check Convoy patterns on Weekly based definition. */
     @Test def testWeeklySwarmClusters(): Unit = {
         val test_name = "WEEKLY_SWARM_CHECK"
-        // println(s"----$test_name----")
         val sunday10PMStamp = 1578868341L
         val sunday11PMStamp = 1578871941L
         val monday01AMStamp = 1578879141L
