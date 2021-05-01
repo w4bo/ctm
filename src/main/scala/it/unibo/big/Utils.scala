@@ -93,51 +93,37 @@ object Utils {
      * @return true if the given set of tiles satisfies the length and shape constraints
      */
     def isValid(tiles: RoaringBitmap, mLen: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]]): Boolean = {
-        tiles.getCardinality >= mLen && (brdNeighborhood.isEmpty || brdNeighborhood.nonEmpty && connectedComponent2(tiles, mLen, brdNeighborhood)._1 >= mLen)
+        tiles.getCardinality >= mLen && (brdNeighborhood.isEmpty || connectedComponent2(tiles, mLen, brdNeighborhood)._1 >= mLen)
     }
 
-    private def connectedComponent2(sp: RoaringBitmap, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], returnComponents: Boolean = false): (Int, RoaringBitmap) = {
+    private def connectedComponent2(sp: RoaringBitmap, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]]): (Int, RoaringBitmap) = {
         if (brdNeighborhood.isEmpty) {
             return (sp.getCardinality, sp)
         }
         var c = 0 // size of the connected component
-        val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
-        var cc: RoaringBitmap = RoaringBitmap.bitmapOf() // current connected component
-        val ccs: RoaringBitmap = RoaringBitmap.bitmapOf() // components accumulator
-        var maxc = Int.MinValue
+        val marked: mutable.Set[Int] = mutable.Set()
         sp.forEach(toJavaConsumer({ tile: Integer => { // for each tile in the support
             // if a connected component of at least minsup has not been found && the tile has been not visited yet
-            if ((returnComponents || c < minsup) && !marked.contains(tile)) {
+            if (c < minsup) {
                 c = 0 // reset the connected component
-                cc = RoaringBitmap.bitmapOf()
-
                 def connectedComponentRec(i: Int): Unit = { // recursive function
-                    marked += i // add the tile to the explored set
                     c += 1 // increase the number of adjacent tiles
-                    if (returnComponents) {
-                        // add the adjacent tile
-                        cc.add(i)
-                    }
+                    marked += i
                     // for each neighbor of the current tile, if the neighbor has been not explored yet ...
                     val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
                     // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
                     if (neighborhood.isDefined) {
-                        neighborhood.get.forEach(toJavaConsumer(i =>
-                            if ((returnComponents || c < minsup) && !marked.contains(i) && sp.contains(i)) {
-                                connectedComponentRec(i)
+                        neighborhood.get.forEach(toJavaConsumer(j =>
+                            if (c < minsup && !marked.contains(j) && sp.contains(j)) {
+                                connectedComponentRec(j)
                             }))
                     }
                 }
                 connectedComponentRec(tile)
-                // add the connected component if big enough
-                maxc = Math.max(c, maxc)
-                if (returnComponents && c >= minsup) {
-                    ccs.or(cc)
-                }
             }
         }
         }))
-        (maxc, ccs)
+        (c, RoaringBitmap.bitmapOf())
     }
 
     /** Create a file at the specified path if it does not exists and write the stats tsv header. */

@@ -159,17 +159,20 @@ object CTM2 {
                                     // checkFilters(lCluster, lClusterSupport, XplusYplusKey, Rnew, key)
                                     // END - TESTING
                                     // if (isValid(RoaringBitmap.or(XplusYplusKey, Rnew), mSup, brdNeighborhood)) { // if CT \cup RT contains a potentially valid pattern
-                                    val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // compute the new co-movement pattern
-                                    if (c.getCardinality >= mCrd && // if the pattern has a valid cardinality
+                                    if (XplusY.getCardinality + Rnew.getCardinality >= mSup) {
+                                        val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // compute the new co-movement pattern
+                                        if (c.getCardinality >= mCrd && // if the pattern has a valid cardinality
                                             isValid(RoaringBitmap.or(XplusY, Rnew), mSup, brdNeighborhood)) { // if CT \cup RT contains a potentially valid pattern
-                                        Rnew = RoaringBitmap.remove(Rnew, key, key + 1) // reduce the remaining transactions
-                                        val XplusYplusKey: RoaringBitmap = RoaringBitmap.add(XplusY, key, key + 1) // update the covered transactions
-                                        val newClusterSupport: RoaringBitmap = support(c, Some(lClusterSupport)) // compute its support
-                                        if (isNonRedundant(XplusYplusKey, Rnew, newClusterSupport)) { // if it is *potentially* a valid co-movement pattern...
-                                            L +:= (c, true, XplusYplusKey, Rnew, newClusterSupport) // store it
+                                            Rnew = RoaringBitmap.remove(Rnew, key, key + 1) // reduce the remaining transactions
+                                            val XplusYplusKey: RoaringBitmap = RoaringBitmap.add(XplusY, key, key + 1) // update the covered transactions
+                                            val newClusterSupport: RoaringBitmap = support(c, Some(lClusterSupport)) // compute its support
+                                            if (isNonRedundant(XplusYplusKey, Rnew, newClusterSupport)) { // if it is *potentially* a valid co-movement pattern...
+                                                L +:= (c, true, XplusYplusKey, Rnew, newClusterSupport) // store it
+                                            }
                                         }
                                     }
-                                }}))
+                                }
+                                }))
                                 countToExtend.add(L.length)
                                 L
                             } else {
