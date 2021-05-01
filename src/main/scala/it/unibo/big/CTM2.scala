@@ -82,12 +82,11 @@ object CTM2 {
          * @param R
          * @param key
          */
-        def checkFilters(lCluster: RoaringBitmap, lClusterSupport: RoaringBitmap, XplusY: RoaringBitmap, R: RoaringBitmap, key: Integer): Unit = {
-            if (!isValid(RoaringBitmap.or(XplusY, R), mSup, brdNeighborhood)) {
+        def checkFilters(lCluster: RoaringBitmap, lClusterSupport: RoaringBitmap, XplusYplusKey: RoaringBitmap, R: RoaringBitmap, key: Integer): Unit = {
+            if (!isValid(RoaringBitmap.or(XplusYplusKey, R), mSup, brdNeighborhood)) {
                 accmLen.add(1)
             }
             val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // compute the new co-movement pattern
-            val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1) // update the covered transactions
             val newClusterSupport = support(c, Some(lClusterSupport)) // compute its support
             if (RoaringBitmap.and(lCluster, brdTrajInCell.value(key)).getCardinality < mCrd) {
                 accmCrd.add(1)
@@ -156,22 +155,22 @@ object CTM2 {
                                 var Rnew: RoaringBitmap = R
                                 R.forEach(toJavaConsumer({ key: Integer => {
                                     acc2.add(1)
-                                    if (isValid(RoaringBitmap.or(XplusY, Rnew), mSup, brdNeighborhood)) { // if CT \cup RT contains a potentially valid pattern
+                                    // BEGIN - TESTING: For test purpose only, comment this function otherwise
+                                    // checkFilters(lCluster, lClusterSupport, XplusYplusKey, Rnew, key)
+                                    // END - TESTING
+                                    // if (isValid(RoaringBitmap.or(XplusYplusKey, Rnew), mSup, brdNeighborhood)) { // if CT \cup RT contains a potentially valid pattern
+                                    val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // compute the new co-movement pattern
+                                    if (c.getCardinality >= mCrd && // if the pattern has a valid cardinality
+                                            isValid(RoaringBitmap.or(XplusY, Rnew), mSup, brdNeighborhood)) { // if CT \cup RT contains a potentially valid pattern
                                         Rnew = RoaringBitmap.remove(Rnew, key, key + 1) // reduce the remaining transactions
-                                        val XplusYplusKey = RoaringBitmap.add(XplusY, key, key + 1) // update the covered transactions
-                                        val c = RoaringBitmap.and(lCluster, brdTrajInCell.value(key)) // compute the new co-movement pattern
-                                        if (c.getCardinality >= mCrd) { // if the pattern has a valid cardinality
-                                            val newClusterSupport: RoaringBitmap = support(c, Some(lClusterSupport)) // compute its support
-                                            if (isNonRedundant(XplusYplusKey, Rnew, newClusterSupport)) { // if it is *potentially* a valid co-movement pattern...
-                                                L +:= (c, true, XplusYplusKey, Rnew, newClusterSupport) // store it
-                                            }
+                                        val XplusYplusKey: RoaringBitmap = RoaringBitmap.add(XplusY, key, key + 1) // update the covered transactions
+                                        val newClusterSupport: RoaringBitmap = support(c, Some(lClusterSupport)) // compute its support
+                                        if (isNonRedundant(XplusYplusKey, Rnew, newClusterSupport)) { // if it is *potentially* a valid co-movement pattern...
+                                            L +:= (c, true, XplusYplusKey, Rnew, newClusterSupport) // store it
                                         }
                                     }
-                                    // For test purpose only, comment this function otherwise
-                                    // checkFilters(lCluster, lClusterSupport, XplusY, R, key)
-                                }
-                                    }))
-                                    countToExtend.add(L.length)
+                                }}))
+                                countToExtend.add(L.length)
                                 L
                             } else {
                                 if (!lCluster.hasRunCompression) lCluster.runOptimize()

@@ -43,9 +43,9 @@ object TestPaper {
         ret.toMap
     }
 
-    def startSparkTestSession(): SparkSession = {
+    def startSparkTestSession(master: String ="local[8]"): SparkSession = {
         val session = SparkSession.builder()
-            .master("local[3]") // Delete this if run in cluster mode
+            .master(master) // Delete this if run in cluster mode
             .appName("TestPaper") // Change this to a proper name
             .config("spark.broadcast.compress", "false")
             .config("spark.shuffle.compress", "false")

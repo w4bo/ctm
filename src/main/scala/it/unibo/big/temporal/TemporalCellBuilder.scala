@@ -137,8 +137,7 @@ object TemporalCellBuilder {
             .flatMap({
                 case (((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(Int, String, String)]), tid: Long) =>
                     trajectories.map({ case (itemid, userid, trajectoryid) =>
-                        require(tid.toInt >= 0, "tid is below 0")
-                        (tid.toInt, itemid, userid, trajectoryid, latitude, longitude, timestamp)
+                        (tid.toInt, itemid.toInt, userid, trajectoryid, latitude, longitude, timestamp)
                     })
             })
             .toDF("tid", "itemid", USER_ID_FIELD, TRAJECTORY_ID_FIELD, LATITUDE_FIELD_NAME, LONGITUDE_FIELD_NAME, TIME_BUCKET_COLUMN_NAME)
@@ -209,7 +208,11 @@ object TemporalCellBuilder {
         spark
             .sql(finalQuery)
             .rdd
-            .map(r => (r.get(0).asInstanceOf[Int], RoaringBitmap.bitmapOf(r.get(1).asInstanceOf[Int])))
+            .map(r => {
+                require(r.get(0).asInstanceOf[Int] >= 0)
+                require(r.get(1).asInstanceOf[Int] >= 0)
+                (r.get(0).asInstanceOf[Int], RoaringBitmap.bitmapOf(r.get(1).asInstanceOf[Int]))
+            })
             .reduceByKey(RoaringBitmap.or)
             .collect()
             .toMap

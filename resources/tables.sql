@@ -538,8 +538,8 @@ select count (distinct userid) from trajectory.oldenburg_standard;
 select count(*) from trajectory.milan_standard;
 select count(*) from trajectory.oldenburg_standard;
 
-select avg(c), stddev_pop(c) from (select userid, count (*) c from trajectory.milan_standard group by userid) a;
-select avg(c), stddev_pop(c) from (select userid, count (*) c from trajectory.oldenburg_standard group by userid) a;
+select avg(c), stddev_pop(c) from (select userid, trajectoryid, count (*) c from trajectory.milan_standard group by userid, trajectoryid) a;
+select avg(c), stddev_pop(c) from (select userid, trajectoryid, count (*) c from trajectory.oldenburg_standard group by userid, trajectoryid) a;
 
 select min(latitude), min(longitude), max(latitude), max(longitude) from trajectory.milan_standard;
 select (max(latitude) - min(latitude)) / 1000 * (max(longitude) - min(longitude)) / 1000 from trajectory.oldenburg_standard;
@@ -563,6 +563,7 @@ insert into ctm.tmp_table select distinct itemid, tid from tmp_transactiontable_
 select count(*) from ctm.tmp_table; -- 850 393
 select count(*) from ctm.milan_standard_temp; -- 22 635 644
 select count(*) from trajectory.milan_standard; -- 224 568 814
+select count(distinct userid, trajectory.id) from trajectory.milan_standard;
 
 show tblproperties ctm.tmp_table; -- 2 577 565 B (parquet)
 show tblproperties ctm.milan_standard_temp; -- 1 129 609 224 B (parquet)

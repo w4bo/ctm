@@ -36,36 +36,24 @@ class TestOnCluster {
         assertTrue(2466 > res9._2.length)
     }
 
-    @Test def testDB3(): Unit = {
-        var sup = 27
-        var continue = true
-        var prevData = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = sup, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
-        while (continue) {
-            continue &= prevData._2.nonEmpty
-            val newData = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = sup + 1, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
-            assertTrue(prevData._1 > newData._1)
-            assertEquals(prevData._2.length, prevData._2.toSet.size)
-            assertEquals(newData._2.length, newData._2.toSet.size)
-            assertEquals(newData._2.toSet - prevData._2.toSet, Set())
-            assertTrue(prevData._3 > newData._3)
-            prevData = newData
-            sup += 1
-        }
-    }
-
-    @Test def testDB2(): Unit = {
-        val res25 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 25, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
-        val res24 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 24, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
-        assertTrue(res25 < res24)
-        val res23 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 23, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
-        assertTrue(res24 < res23)
-        val res22 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 22, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
-        assertTrue(res23 < res22)
-        val res21 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 21, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
-        assertTrue(res22 < res21)
-        val res20 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 20, bin_s = 16, bin_t = 4, eps_s = Double.PositiveInfinity, eps_t = Double.PositiveInfinity, inTable = "trajectory.milan_standard", timeScale = DailyScale, returnResult = true)._3
-        assertTrue(res21 < res20)
-    }
+//    @Test def testDB3(): Unit = {
+//        def setup(sup: Int): (Long, Array[(RoaringBitmap, Int, Int)], Long) = CTM.run(spark = Some(sparkSession), droptable = true, minsize = 100, minsup = sup, bin_s = 16, bin_t = 4, timeScale = DailyScale, inTable = "trajectory.milan_standard", returnResult = true)
+//        var sup = 15
+//        var continue = true
+//        var prevData = setup(sup)
+//        while (continue) {
+//            println("\n\n----- SUP: " + sup + "\n\n")
+//            continue &= prevData._2.nonEmpty
+//            val newData = setup(sup + 1)
+//            assertTrue(prevData._1 >= newData._1, s"Itemset should increase for lower support. prev: ${prevData._1}, new: ${newData._1}")
+//            assertEquals(prevData._2.length, prevData._2.map(i => i._1).toSet.size, "All the itemsets should be diverse")
+//            assertEquals(newData._2.length, newData._2.map(i => i._1).toSet.size, "All the itemsets should be diverse")
+//            assertEquals(Set(), newData._2.map(i => i._1).toSet.diff(prevData._2.map(i => i._1).toSet), s"The lower support RDD does not contains some of the higher support RDD's itemset\npre: ${prevData._2.sortBy(-_._2).map(i => i._1).toSeq}\nnew: ${newData._2.sortBy(-_._2).map(i => i._1).toSeq}")
+//            assertTrue(prevData._3 >= newData._3, s"The enumerated space should not decrease. prev: ${prevData._3}, new: ${newData._3}")
+//            prevData = newData
+//            sup += 1
+//        }
+//    }
 
     /**
      * Test a pattern where the trajectories are in three near cells.
@@ -352,7 +340,7 @@ class TestOnCluster {
             returnResult = true
         )
         val expectedClusters = Set(
-            (RoaringBitmap.bitmapOf(2, 3), 2, 6)
+            (RoaringBitmap.bitmapOf(0, 1), 2, 6)
         )
         assertEquals(expectedClusters, cuteClusters._2.toSet)
     }
