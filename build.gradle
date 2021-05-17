@@ -58,7 +58,7 @@ dependencies {
     implementation 'org.datasyslab:geospark:1.2.0'
     implementation 'org.datasyslab:geospark-sql_2.3:1.2.0'
     implementation 'org.rogach:scallop_2.11:3.5.1'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.1'
 }
 
