@@ -1,7 +1,7 @@
 package it.unibo.big.temporal
 
-import it.unibo.big.temporal.TemporalScale._
 import it.unibo.big.Utils._
+import it.unibo.big.temporal.TemporalScale._
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._

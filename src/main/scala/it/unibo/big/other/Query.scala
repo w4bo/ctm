@@ -2,9 +2,9 @@ package it.unibo.big.other
 
 import it.unibo.big.Conf
 import it.unibo.big.Utils._
+import it.unibo.big.temporal.TemporalCellBuilder._
 import it.unibo.big.temporal.TemporalScale
 import it.unibo.big.temporal.TemporalScale._
-import it.unibo.big.temporal.TemporalCellBuilder._
 import org.apache.spark.sql.SaveMode
 
 import java.io.{File, PrintWriter}

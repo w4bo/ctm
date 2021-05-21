@@ -1,10 +1,9 @@
 package it.unibo.big
 
 import it.unibo.big.Utils._
-import it.unibo.big.temporal.TemporalScale
-import it.unibo.big.temporal.TemporalScale._
-import it.unibo.big.temporal.TemporalCellBuilder
 import it.unibo.big.temporal.TemporalCellBuilder._
+import it.unibo.big.temporal.{TemporalCellBuilder, TemporalScale}
+import it.unibo.big.temporal.TemporalScale._
 import org.apache.log4j.Logger
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
