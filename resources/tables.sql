@@ -74,16 +74,22 @@ stored as parquet;
 insert into cariploenr_standard select customid as userid, trajid as trajectoryid, timest as `timestamp`, latitude, longitude, accuracy from cariploenr6;
 
 -- CREATE TABLE oldenburg_standard
+drop table oldenburg_standard;
 create table oldenburg_standard(userid string, trajectoryid string, `timestamp` bigint, latitude double, longitude double, accuracy int)
 comment 'Oldenburg with 1M trajectories.'
 clustered by(userid) sorted by (`timestamp`) into 200 buckets
 stored as parquet;
-insert into oldenburg_standard select customid as userid, trajid as trajectoryid, timest as `timestamp`, latitude, longitude, accuracy from cariploenr6;
+insert into oldenburg_standard select customid as userid, trajid as , `timestamp`, latitude, longitude, 0 as accuracy from final_oldenburg_dataset;
+select trajid, latitude, longitude, `timestamp` from oldenburg_standard where customid = 666 or customid = 667 order by trajid, `timestamp` limit 10000;
+select userid, trajectoryid, `timestamp`, c from (select userid, trajectoryid, `timestamp`, count(trajectoryid) as c from oldenburg_standard group by customid, trajid) t order by c desc limit 100;
 
-select trajid, latitude, longitude, `timestamp` from final_oldenburg_dataset where customid = 666 or customid = 667 order by trajid, `timestamp` limit 10000;
-select customid, trajid, count(trajid) from final_oldenburg_dataset group by customid, trajid;
-
-describe final_oldenburg_dataset;
+create table oldenburg_standard_first20_limit100000(userid string, trajectoryid string, `timestamp` bigint, latitude double, longitude double, accuracy int)
+comment 'Oldenburg with 1M trajectories.'
+clustered by(userid) sorted by (`timestamp`) into 200 buckets
+stored as parquet;
+insert into oldenburg_standard_first20_limit100000 select userid, trajectoryid, `timestamp`, latitude, longitude, accuracy from oldenburg_standard where `timestamp` <= 20 and userid <= 100000;
+select userid, trajectoryid, `timestamp`, c from (select userid, trajectoryid, `timestamp`, count(trajectoryid) as c from oldenburg_standard_first20_limit100000 group by userid, trajectoryid, `timestamp`) t order by c desc, userid desc limit 100;
+select min(latitude), max(latitude), min(longitude), max(longitude) from oldenburg_standard_first20_limit100000; -- 292,	23854,	4002,	30847
 
 -- CREATE TABLE milano_standard
 drop table milan_standard;
@@ -93,6 +99,7 @@ clustered by(userid) sorted by (`timestamp`) into 200 buckets
 stored as parquet;
 insert into milan_standard select userid, trajectoryid, `timestamp`, latitude, longitude from cariploenr_standard where latitude >= 45.4 and latitude <= 45.5 and longitude >= 9.04 and longitude <= 9.275;
 select count(distinct userid, trajectoryid) from trajectory.milan_standard; -- 10 249 665
+select distinct round(latitude / (11 * 15), 4), round(longitude / (15 * 15), 4) from trajectory.milan_standard; -- 10 249 665
 
 drop table milan2_standard;
 create table milan2_standard(userid string, trajectoryid string, `timestamp` bigint, latitude double, longitude double)
@@ -179,3 +186,31 @@ select count(*) from trajectory.tmp_result_ctm;
 select count(distinct time_bucket, latitude, longitude) from ctm.tmp_transactiontable__tbl_tdrive_standard_first24__lmt_10000000__size_5__sup_20__bins_10__ts_absolute__bint_1__unitt_3600;
 DROP DATABASE ctm CASCADE;
 create database ctm;
+
+select hour(from_unixtime(`timestamp`)) from trajectory.milan_standard where hour(from_unixtime(`timestamp`)) < 1; -- [0, 23]
+select from_unixtime(`timestamp`, 'u')  from trajectory.milan_standard where from_unixtime(`timestamp`, 'u')  > 7; -- [1, 7]
+
+-- ------------------------------------------------------------------------------------------------------------------------------
+-- create OLDENBURG tables such that each tables contains X distinct users and that group of 1K trajectories exist in the dataset
+-- ------------------------------------------------------------------------------------------------------------------------------
+drop table trajectory.oldenburg_standard_500000;
+drop table trajectory.oldenburg_standard_250000;
+drop table trajectory.oldenburg_standard_100000;
+drop table trajectory.oldenburg_standard_50000;
+drop table trajectory.oldenburg_standard_10000;
+
+create table trajectory.oldenburg_standard_500000 as select * from trajectory.oldenburg_standard where userid in (select distinct userid from ctm.join__oldenburg_standard__1000__20__20__absolute__5 union select userid from ctm.oldenburg_users_500000);
+create table trajectory.oldenburg_standard_250000 as select * from trajectory.oldenburg_standard where userid in (select distinct userid from ctm.join__oldenburg_standard__1000__20__20__absolute__5 union select userid from ctm.oldenburg_users_250000);
+create table trajectory.oldenburg_standard_100000 as select * from trajectory.oldenburg_standard where userid in (select distinct userid from ctm.join__oldenburg_standard__1000__20__20__absolute__5 union select userid from ctm.oldenburg_users_100000);
+create table trajectory.oldenburg_standard_50000  as select * from trajectory.oldenburg_standard where userid in (select distinct userid from ctm.join__oldenburg_standard__1000__20__20__absolute__5 union select userid from ctm.oldenburg_users_50000);
+create table trajectory.oldenburg_standard_10000  as select * from trajectory.oldenburg_standard where userid in (select distinct userid from ctm.join__oldenburg_standard__1000__20__20__absolute__5 union select userid from ctm.oldenburg_users_10000);
+create table trajectory.oldenburg_standard_1000   as select * from trajectory.oldenburg_standard where userid in (select distinct userid from ctm.join__oldenburg_standard__1000__20__20__absolute__5);
+
+create table ctm.oldenburg_users_500000 as select distinct userid from trajectory.oldenburg_standard limit 500000;
+create table ctm.oldenburg_users_250000 as select distinct userid from trajectory.oldenburg_standard limit 250000;
+create table ctm.oldenburg_users_100000 as select distinct userid from trajectory.oldenburg_standard limit 100000;
+create table ctm.oldenburg_users_50000 as select distinct userid from trajectory.oldenburg_standard limit 50000;
+create table ctm.oldenburg_users_10000 as select distinct userid from trajectory.oldenburg_standard limit 10000;
+-- ------------------------------------------------------------------------------------------------------------------------------
+-- END: create OLDENBURG tables such that each tables contains X distinct users and that group of 1K trajectories exist in the dataset
+-- ------------------------------------------------------------------------------------------------------------------------------
