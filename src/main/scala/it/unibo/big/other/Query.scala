@@ -1,11 +1,13 @@
-package it.unibo.big
+package it.unibo.big.other
 
-import it.unibo.big.TemporalScale.AbsoluteScale
-import it.unibo.big.Utils.startSparkSession
-import it.unibo.big.temporal.TemporalCellBuilder.{computeLatitudeQuery, computeLongitudeQuery, computeTimeBin}
+import it.unibo.big.Conf
+import it.unibo.big.Utils._
+import it.unibo.big.temporal.TemporalScale
+import it.unibo.big.temporal.TemporalScale._
+import it.unibo.big.temporal.TemporalCellBuilder._
 import org.apache.spark.sql.SaveMode
 
-import java.io._
+import java.io.{File, PrintWriter}
 import java.util.Scanner
 
 /** This is the main class of the project */

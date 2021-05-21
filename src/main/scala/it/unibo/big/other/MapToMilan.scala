@@ -1,5 +1,6 @@
-package it.unibo.big
+package it.unibo.big.other
 
+import it.unibo.big.Utils._
 import org.apache.spark.serializer.KryoSerializer
 import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.datasyslab.geospark.serde.GeoSparkKryoRegistrator
@@ -8,9 +9,6 @@ import org.rogach.scallop.ScallopConf
 
 /** Map table to Milan neighborhood and municipalities */
 object MapToMilan {
-  val NEXECUTORS = 10
-  val NCORES = 3
-  val MAXRAM = "12g"
 
   /**
    * @param inTable    input table

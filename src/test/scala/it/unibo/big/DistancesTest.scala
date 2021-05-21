@@ -1,6 +1,10 @@
 package it.unibo.big
 
 import it.unibo.big.Utils._
+import it.unibo.big.temporal.TemporalScale
+import it.unibo.big.temporal.TemporalScale._
+import it.unibo.big.temporal.TemporalCellBuilder
+import it.unibo.big.temporal.TemporalCellBuilder._
 import org.junit.jupiter.api.Assertions._
 import org.junit.jupiter.api.Test
 

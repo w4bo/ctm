@@ -1,7 +1,7 @@
 package it.unibo.big
 
-import it.unibo.big.TemporalScale.{AbsoluteScale, DailyScale, NoScale, WeeklyScale}
 import it.unibo.big.TestOnCluster.sparkSession
+import it.unibo.big.temporal.TemporalScale.{AbsoluteScale, DailyScale, NoScale, WeeklyScale}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.junit.jupiter.api.Assertions._
 import org.junit.jupiter.api.{BeforeAll, Test}
@@ -29,31 +29,31 @@ class TestOnCluster {
     }
 
     @Test def testDB(): Unit = {
-        var res9 = CTM.run(spark = Some(sparkSession), droptable = true, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
+        var res9 = Main.run(spark = Some(sparkSession), droptable = true, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
         assertEquals(2466, res9._2.length)
-        res9 = CTM.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
+        res9 = Main.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
         assertEquals(2466, res9._1)
         assertTrue(2466 > res9._2.length)
     }
 
-//    @Test def testDB3(): Unit = {
-//        def setup(sup: Int): (Long, Array[(RoaringBitmap, Int, Int)], Long) = CTM.run(spark = Some(sparkSession), droptable = true, minsize = 100, minsup = sup, bin_s = 16, bin_t = 4, timeScale = DailyScale, inTable = "trajectory.milan_standard", returnResult = true)
-//        var sup = 15
-//        var continue = true
-//        var prevData = setup(sup)
-//        while (continue) {
-//            println("\n\n----- SUP: " + sup + "\n\n")
-//            continue &= prevData._2.nonEmpty
-//            val newData = setup(sup + 1)
-//            assertTrue(prevData._1 >= newData._1, s"Itemset should increase for lower support. prev: ${prevData._1}, new: ${newData._1}")
-//            assertEquals(prevData._2.length, prevData._2.map(i => i._1).toSet.size, "All the itemsets should be diverse")
-//            assertEquals(newData._2.length, newData._2.map(i => i._1).toSet.size, "All the itemsets should be diverse")
-//            assertEquals(Set(), newData._2.map(i => i._1).toSet.diff(prevData._2.map(i => i._1).toSet), s"The lower support RDD does not contains some of the higher support RDD's itemset\npre: ${prevData._2.sortBy(-_._2).map(i => i._1).toSeq}\nnew: ${newData._2.sortBy(-_._2).map(i => i._1).toSeq}")
-//            assertTrue(prevData._3 >= newData._3, s"The enumerated space should not decrease. prev: ${prevData._3}, new: ${newData._3}")
-//            prevData = newData
-//            sup += 1
-//        }
-//    }
+    //    @Test def testDB3(): Unit = {
+    //        def setup(sup: Int): (Long, Array[(RoaringBitmap, Int, Int)], Long) = CTM.run(spark = Some(sparkSession), droptable = true, minsize = 100, minsup = sup, bin_s = 16, bin_t = 4, timeScale = DailyScale, inTable = "trajectory.milan_standard", returnResult = true)
+    //        var sup = 15
+    //        var continue = true
+    //        var prevData = setup(sup)
+    //        while (continue) {
+    //            println("\n\n----- SUP: " + sup + "\n\n")
+    //            continue &= prevData._2.nonEmpty
+    //            val newData = setup(sup + 1)
+    //            assertTrue(prevData._1 >= newData._1, s"Itemset should increase for lower support. prev: ${prevData._1}, new: ${newData._1}")
+    //            assertEquals(prevData._2.length, prevData._2.map(i => i._1).toSet.size, "All the itemsets should be diverse")
+    //            assertEquals(newData._2.length, newData._2.map(i => i._1).toSet.size, "All the itemsets should be diverse")
+    //            assertEquals(Set(), newData._2.map(i => i._1).toSet.diff(prevData._2.map(i => i._1).toSet), s"The lower support RDD does not contains some of the higher support RDD's itemset\npre: ${prevData._2.sortBy(-_._2).map(i => i._1).toSeq}\nnew: ${newData._2.sortBy(-_._2).map(i => i._1).toSeq}")
+    //            assertTrue(prevData._3 >= newData._3, s"The enumerated space should not decrease. prev: ${prevData._3}, new: ${newData._3}")
+    //            prevData = newData
+    //            sup += 1
+    //        }
+    //    }
 
     /**
      * Test a pattern where the trajectories are in three near cells.
@@ -70,7 +70,7 @@ class TestOnCluster {
                 "02\t0\t0\t3")
         val absoluteContiguityTableView = "simple_table_view"
         loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession), droptable = true, inTable = absoluteContiguityTableView, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
+        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = absoluteContiguityTableView, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
         assertEquals(expectedClusters, cuteClusters._2.toSet)
     }
@@ -82,7 +82,7 @@ class TestOnCluster {
         val absoluteContiguityInputSet: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t3", "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4")
         val absoluteContiguityTableView = "simple_table_view_NOresult"
         loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
-        val absoluteContiguityClusters = CTM.run(spark = Some(sparkSession), droptable = true, inTable = absoluteContiguityTableView, minsize = 2, minsup = 3, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
+        val absoluteContiguityClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = absoluteContiguityTableView, minsize = 2, minsup = 3, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
         assertTrue(absoluteContiguityClusters._2.isEmpty)
     }
 
@@ -94,7 +94,7 @@ class TestOnCluster {
             "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4", "02\t0\t0\t6")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 3, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 2, returnResult = true)
+        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 3, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 2, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
         assertEquals(expectedClusters, cuteClusters._2.toSet)
     }
@@ -114,7 +114,7 @@ class TestOnCluster {
                 "02\t0\t0\t7") //
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 2, returnResult = true)
+        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 2, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
         assertEquals(expectedClusters, cuteClusters._2.toSet)
     }
@@ -129,7 +129,7 @@ class TestOnCluster {
             "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t5", "02\t0\t0\t7")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -151,7 +151,7 @@ class TestOnCluster {
             "02\t10\t10\t1", "02\t0\t0\t3", "02\t0\t0\t4", "02\t0\t0\t5")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -177,7 +177,7 @@ class TestOnCluster {
             "02\t10\t10\t1", "02\t0\t0\t3", "02\t10\t10\t4", "02\t10\t10\t5")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -213,7 +213,7 @@ class TestOnCluster {
             "02\t0\t0\t8")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
+        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
         val expectedClusters = Set(
             (RoaringBitmap.bitmapOf(0, 1), 2, 6)
             // (RoaringBitmap.bitmapOf(1, 2), 2),
@@ -239,7 +239,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -273,7 +273,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -300,7 +300,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -328,7 +328,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -354,7 +354,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -384,7 +384,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -420,7 +420,7 @@ class TestOnCluster {
                 s"02\t0\t0\t$monday12AMStamp")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             timeScale = DailyScale,
             droptable = true,
             inTable = tableName,
@@ -451,7 +451,7 @@ class TestOnCluster {
             s"02\t0\t0\t$monday13PMStamp", s"02\t0\t0\t$monday14PMStamp")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession),
+        val cuteClusters = Main.run(spark = Some(sparkSession),
             droptable = true,
             timeScale = DailyScale,
             inTable = tableName,
@@ -480,7 +480,7 @@ class TestOnCluster {
             s"02\t0\t0\t$monday01AMStamp", s"02\t0\t0\t$monday02AMStamp")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession), droptable = true, timeScale = DailyScale, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, bin_t = 1, eps_t = 1, returnResult = true)
+        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, timeScale = DailyScale, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, bin_t = 1, eps_t = 1, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
         assertEquals(expectedClusters, cuteClusters._2.toSet)
     }
@@ -503,7 +503,7 @@ class TestOnCluster {
             s"02\t0\t0\t$monday02AMStamp")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = CTM.run(spark = Some(sparkSession), droptable = true, timeScale = WeeklyScale, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, returnResult = true)
+        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, timeScale = WeeklyScale, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 2))
         assertEquals(expectedClusters, cuteClusters._2.toSet)
     }
