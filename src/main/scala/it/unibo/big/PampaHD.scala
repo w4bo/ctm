@@ -98,7 +98,7 @@ object PampaHD {
             val _FCP: mutable.Set[Itemset] = mutable.Set() ++ FCP.value
             val _toExtend: mutable.Set[(TT, RoaringBitmap)] = mutable.Set()
             val _stats: mutable.Map[String, Long] = mutable.Map()
-            minePattern(tt, r, minSup.value, _FCP, stats = _stats, maxIterations = Some(maxIterations.value), toExtend = _toExtend)
+            minePattern(tt, r, minSup.value, 1, _FCP, stats = _stats, maxIterations = Some(maxIterations.value), toExtend = _toExtend)
             countIterations.add(_stats("iterations"))
             countRedundantOk.add(_FCP.size)
             countLeft.add(_toExtend.size)

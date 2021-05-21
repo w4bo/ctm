@@ -4,12 +4,14 @@ import it.unibo.big.TemporalScale.NoScale
 import it.unibo.big.Utils._
 import it.unibo.big.temporal.TemporalCellBuilder
 import it.unibo.big.temporal.TemporalCellBuilder._
-import org.apache.log4j.{Level, LogManager, Logger}
+import org.apache.log4j.Logger
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.roaringbitmap.RoaringBitmap
 import org.rogach.scallop.ScallopConf
+
+class CTM {}
 
 /** This is the main class of the project */
 object CTM {
@@ -26,19 +28,19 @@ object CTM {
     var transactionTable: String = _
     var cellToIDTable: String = _
     var neighborhoodTable: String = _
-    var storage_thr: Int  = _
-    var repfreq: Int  = _
-    var limit: Int  = _
-    var nexecutors: Int  = _
-    var ncores: Int  = _
-    var maxram: String  = _
-    var timeScale: TemporalScale  = _
-    var unit_t: Int = _
+    var storage_thr: Int = _
+    var repfreq: Int = _
+    var limit: Int = _
+    var nexecutors: Int = _
+    var ncores: Int = _
+    var maxram: String = _
+    var timeScale: TemporalScale = _
     var bin_t: Int = _
     var eps_t: Double = _
     var bin_s: Int = _
     var eps_s: Double = _
     var euclidean: Boolean = _
+    private val L = Logger.getLogger(classOf[CTM])
 
     // scalastyle:off
     /**
@@ -55,7 +57,6 @@ object CTM {
      * @param ncores       Number of cores
      * @param maxram       Available RAM
      * @param timeScale    {"daily", "weekly", "absolute", "notime"}. Daily = Day hour (0, ..., 23). Weekly = Weekday (1, ..., 7).
-     * @param unit_t       Time unit in seconds (1 = 1s, 3600 = 1h), map timestamp to the given temporal unit (ignored for weekly and daily)
      * @param bin_t        bin_t \in N (0, 1, ..., n). Size of the temporal quanta (expressed as a multiplier of timeBucketUnit). If 0, consider only a single bucket
      * @param eps_t        eps_t \in N (1, ..., n). Allow eps_t temporal neighbors
      * @param bin_s        bin_s \in N (1, ..., n). Multiply cell size 123m x bin_s
@@ -65,14 +66,13 @@ object CTM {
      * @param euclidean    Whether the coordinates in the dataset are Polar or Euclidean
      * @return If `returnResult`, return the results as a centralized array. Otherwise, returns an empty array
      */
-    def run(inTable: String = "foo", minsize: Int, minsup: Int, platoon: Boolean = false,
+    def run(inTable: String = "foo" + System.currentTimeMillis(), minsize: Int, minsup: Int, platoon: Boolean = false,
             storage_thr: Int = STORAGE_THR, repfreq: Int = 1, limit: Int = Int.MaxValue, // EFFICIENCY PARAMETERS
             nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM, // SPARK CONFIGURATION
-            timeScale: TemporalScale, unit_t: Int = SECONDS_IN_HOUR, bin_t: Int = 1, eps_t: Double = Double.PositiveInfinity,
+            timeScale: TemporalScale, bin_t: Int = 1, eps_t: Double = Double.PositiveInfinity,
             bin_s: Int, eps_s: Double = Double.PositiveInfinity, // EFFECTIVENESS PARAMETERS
             debugData: Seq[(Tid, Vector[Itemid])] = Seq(), neighs: Map[Tid, RoaringBitmap] = Map(), spark: Option[SparkSession] = None, // INPUTS
-            returnResult: Boolean = false,
-            droptable: Boolean = false, euclidean: Boolean = false, difftime: Boolean = false): (Long, Array[(RoaringBitmap, Int, Int)]) = {
+            returnResult: Boolean = false, droptable: Boolean = false, euclidean: Boolean = false): (Long, Array[(RoaringBitmap, Int, Int)], Long) = {
         this.inTable = inTable
         this.debug = debugData.nonEmpty
         this.returnResult = returnResult
@@ -84,23 +84,21 @@ object CTM {
         this.ncores = ncores
         this.maxram = maxram
         this.timeScale = timeScale
-        this.unit_t = SECONDS_IN_HOUR
-        this.bin_t = 1
+        this.bin_t = bin_t
         this.eps_t = eps_t
         this.bin_s = bin_s
         this.eps_s = eps_s
         this.euclidean = euclidean
 
         val temporaryTableName: String = // Define the generic name of the support table, based on the relevant parameters for cell creation.
-            s"-tbl_${inTable.replace("trajectory.", "")}" +
+            s"-tbl_${inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length)}" +
+                // {inTable.replace("trajectory.", "")}" +
                 s"-lmt_${if (limit == Int.MaxValue) "Infinity" else limit}" +
                 s"-size_$minsize" +
                 s"-sup_$minsup" +
                 s"-bins_$bin_s" +
                 s"-ts_${timeScale.value}" +
-                s"-difft_${difftime}" +
-                s"-bint_$bin_t" +
-                s"-unitt_$unit_t"
+                s"-bint_$bin_t"
         conf = // Define the generic name for the run, including temporary table name
             "CTM" + temporaryTableName +
                 s"-epss_${if (eps_s.isInfinite) eps_s.toString else eps_s.toInt}" +
@@ -122,26 +120,29 @@ object CTM {
                     .flatMap(t => t._2.map(c => (c, t._1)))
                     .cache()
             } else {
-                /* ------------------------------------------------------------------------
-                 * Spark Environment Setup
-                 * ------------------------------------------------------------------------ */
-                sparkSession.sparkContext.setLogLevel("ERROR")
-                Logger.getLogger("org").setLevel(Level.ERROR)
-                Logger.getLogger("akka").setLevel(Level.ERROR)
-                LogManager.getRootLogger.setLevel(Level.ERROR)
                 /* *************************************************************************************************************
                  * CONFIGURING TABLE NAMES
                  * ************************************************************************************************************/
                 transactionTable = s"tmp_transactiontable$temporaryTableName".replace("-", "__") // Trajectories mapped to cells
                 cellToIDTable = s"tmp_celltoid$temporaryTableName".replace("-", "__") // Cells with ids
                 neighborhoodTable = s"tmp_neighborhood$temporaryTableName".replace("-", "__") // Neighborhoods
+                val inputDFtable = s"tmp_abstract$temporaryTableName".replace("-", "__")
+                L.info(s"""--- Writing to
+                       |        $inputDFtable
+                       |        $summaryTable
+                       |        $itemsetTable
+                       |        $supportTable
+                       |        $transactionTable
+                       |        $cellToIDTable
+                       |        $neighborhoodTable
+                       |        $outTable2""".stripMargin)
 
                 /* *************************************************************************************************************
                  * Trajectory mapping: mapping trajectories to trajectory abstractions
                  * **************************************************************************************************************/
-                println(s"\n--- Writing to \n\t$itemsetTable\n\t$outTable2\n")
                 if (droptable) {
-                    println("Dropping tables.")
+                    L.debug("Dropping tables.")
+                    sparkSession.sql(s"drop table if exists $DB_NAME.$inputDFtable")
                     sparkSession.sql(s"drop table if exists $DB_NAME.$transactionTable")
                     sparkSession.sql(s"drop table if exists $DB_NAME.$cellToIDTable")
                     sparkSession.sql(s"drop table if exists $DB_NAME.$neighborhoodTable")
@@ -150,26 +151,23 @@ object CTM {
                 // the transaction table is only generated once, skip the generation if already generated
                 if (!sparkSession.catalog.tableExists(DB_NAME, transactionTable)) {
                     // Create time bin from timestamp in a temporal table `inputDFtable`
-                    val inputDFtable = inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length) + "_temp"
-                    println(s"--- Getting data from $inTable...")
-                    getData(sparkSession, inTable, inputDFtable, timeScale, bin_t, unit_t, euclidean, bin_s)
-                    if (debug || returnResult) {
-                        sparkSession.sql(s"select * from $inputDFtable limit $linesToPrint").show()
-                    }
+                    L.debug(s"--- Getting data from $inTable...")
+                    getData(sparkSession, inTable, inputDFtable, timeScale, bin_t, euclidean, bin_s)
+                    sparkSession.sql(s"select * from $inputDFtable").show(linesToPrint)
                     // create trajectory abstractions from the `inputDFtable`, and store it to the `transactionTable` table
-                    println(s"--- Generating $transactionTable...")
+                    L.debug(s"--- Generating $transactionTable...")
                     mapToReferenceSystem(sparkSession, inputDFtable, transactionTable, minsize, minsup, limit)
-                    sparkSession.sql(s"select * from $transactionTable limit $linesToPrint").show()
+                    sparkSession.sql(s"select * from $transactionTable").show(linesToPrint)
                     // create the quanta of the reference system from the `inputDFtable` temporal table, and store it to the `cellToIDTable`
                     getQuanta(sparkSession, transactionTable, cellToIDTable)
-                    sparkSession.sql(s"select * from $cellToIDTable limit $linesToPrint").show()
+                    sparkSession.sql(s"select * from $cellToIDTable").show(linesToPrint)
                 }
                 if (!sparkSession.catalog.tableExists(DB_NAME, neighborhoodTable)) {
                     // create the table with all neighbors for each cell
                     if (!eps_s.isInfinite || !eps_t.isInfinite) {
-                        println(s"--- Generating $neighborhoodTable...")
-                        createNeighborhood(sparkSession, cellToIDTable, neighborhoodTable, timeScale, euclidean, difftime)
-                        sparkSession.sql(s"select * from $neighborhoodTable limit $linesToPrint").show()
+                        L.debug(s"--- Generating $neighborhoodTable...")
+                        createNeighborhood(sparkSession, cellToIDTable, neighborhoodTable, timeScale, euclidean)
+                        sparkSession.sql(s"select * from $neighborhoodTable").show(linesToPrint)
                     }
                 }
                 require(sparkSession.catalog.tableExists(DB_NAME, transactionTable), s"$transactionTable does not exist")
@@ -177,7 +175,7 @@ object CTM {
                 require(sparkSession.catalog.tableExists(DB_NAME, transactionTable), s"$neighborhoodTable does not exist")
 
                 val sql = s"select tid, itemid from $transactionTable"
-                println(s"--- Input: $sql")
+                L.debug(s"--- Input: $sql")
                 sparkSession
                     .sql(sql)
                     .rdd
@@ -204,7 +202,12 @@ object CTM {
                     Map()
                 }
         }
-        val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] = if (neighbors.nonEmpty) { Some(sparkSession.sparkContext.broadcast(neighbors)) } else { None }
+        val brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]] =
+            if (neighbors.nonEmpty) {
+                Some(sparkSession.sparkContext.broadcast(neighbors))
+            } else {
+                None
+            }
 
         /** run the algorithm. */
         CTM2.CTM(sparkSession, trans, brdNeighborhood, minsup, minsize, platoon)
@@ -216,7 +219,7 @@ object CTM {
      * @param args arguments
      */
     def main(args: Array[String]): Unit = {
-        val conf = new TemporalTrajectoryFlowConf(args)
+        val conf = new Conf(args)
         val debug: Boolean = conf.debug()
         if (args.nonEmpty && !debug) {
             run(
@@ -224,18 +227,16 @@ object CTM {
                 euclidean = conf.euclidean(),
                 droptable = conf.droptable(),
                 timeScale = TemporalScale(conf.timescale.getOrElse(NoScale.value)),
-                unit_t = conf.unitt.getOrElse(SECONDS_IN_HOUR),
                 bin_t = conf.bint.getOrElse(0),
-                eps_t = conf.epst(),
-                eps_s = conf.epss(),
+                eps_t = conf.epst.getOrElse(Double.PositiveInfinity),
+                eps_s = conf.epss.getOrElse(Double.PositiveInfinity),
                 bin_s = conf.bins(),
                 nexecutors = conf.nexecutors(),
                 ncores = conf.ncores(),
                 maxram = conf.maxram(),
-                storage_thr = conf.storagethr(),
+                storage_thr = conf.storagethr.getOrElse(1000000),
                 repfreq = conf.repfreq(),
-                difftime = conf.difftime(),
-                limit = conf.limit().toInt,
+                limit = conf.limit.getOrElse(conf.minsize() * 1000),
                 minsize = conf.minsize(),
                 minsup = conf.minsup(),
                 platoon = conf.platoon(),
@@ -250,9 +251,9 @@ object CTM {
  *
  * @param arguments the programs arguments as an array of strings.
  */
-class TemporalTrajectoryFlowConf(arguments: Seq[String]) extends ScallopConf(arguments) {
+class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
     val tbl = opt[String]()
-    val limit = opt[Double]()
+    val limit = opt[Int]()
     val minsize = opt[Int]()
     val minsup = opt[Int]()
     val euclidean = opt[Boolean]()
@@ -270,7 +271,7 @@ class TemporalTrajectoryFlowConf(arguments: Seq[String]) extends ScallopConf(arg
     val epst = opt[Double]()
     val debug = opt[Boolean](required = true)
     val droptable = opt[Boolean]()
-    val difftime = opt[Boolean]()
     val returnresult = opt[Boolean]()
+    val querytype = opt[String]()
     verify()
 }

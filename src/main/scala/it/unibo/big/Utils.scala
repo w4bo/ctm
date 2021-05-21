@@ -1,15 +1,16 @@
 package it.unibo.big
 
-import it.unibo.big.CTM._
-import it.unibo.big.CTM2._
-import org.apache.spark.rdd.RDD
+import org.apache.log4j.{Level, Logger}
+import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{SaveMode, SparkSession}
+import org.apache.spark.util.LongAccumulator
 import org.roaringbitmap.RoaringBitmap
 
 import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.{Files, Paths}
 import java.util.function.Consumer
+import scala.collection.mutable
 import scala.math._
 
 /**
@@ -31,19 +32,11 @@ object Utils {
     /** Default shuffle partitions */
     val SPARK_SQL_SHUFFLE_PARTITIONS = 200
     /** Default shuffle partitions */
-    val SPARK_SQL_TEST_SHUFFLE_PARTITIONS = NEXECUTORS * NCORES
+    val SPARK_SQL_TEST_SHUFFLE_PARTITIONS: Int = NEXECUTORS * NCORES
     /** TSV separator. */
     val FIELD_SEPARATOR = "\\t"
-    /** Column name for the timestamp inside the trajectory and cell tables. */
-    val BUCKET_TIMESTAMP_COLUMN_NAME: String = "bucket_unix_timestamp"
     /** Column name for the time bucket inside the trajectory and cell tables. */
     val TIME_BUCKET_COLUMN_NAME: String = "time_bucket"
-    /** Define how many milliseconds are inside a second. */
-    val MILLIS_IN_SECOND: Int = 1000
-    /** Define how many second are inside an hour. */
-    val SECONDS_IN_HOUR: Int = 3600
-    /** Define how many seconds are inside and hour. */
-    val SECOND_IN_MINUTES: Int = 60
     /** Time distance column name for the space table. */
     val SPACE_DISTANCE_COLUMN_NAME = "space_distance"
     /** Time distance column name for the neighbourhood table. */
@@ -57,7 +50,7 @@ object Utils {
     /** Custom id field name. */
     val USER_ID_FIELD = "userid"
     /** Timestamp field name. */
-    val TIMESTAMP_FIELD = "timestamp"
+    val TIMESTAMP_FIELD_NAME = "timestamp"
     /** Default schema for every input database that will be processed by CTM algorithm. */
     val INPUT_REQUIRED_SCHEMA = StructType(
         Array(
@@ -65,25 +58,105 @@ object Utils {
             StructField(TRAJECTORY_ID_FIELD, StringType),
             StructField(LATITUDE_FIELD_NAME, DoubleType),
             StructField(LONGITUDE_FIELD_NAME, DoubleType),
-            StructField(TIMESTAMP_FIELD, LongType)
+            StructField(TIMESTAMP_FIELD_NAME, LongType)
         )
     )
+
+    /**
+     * @param CT          current transactions
+     * @param RT          remaining transactions
+     * @param trueSupport true itemset support
+     * @return true if the pattern is non redundant
+     */
+    def isNonRedundant(CT: RoaringBitmap, RT: RoaringBitmap, trueSupport: RoaringBitmap): Boolean = {
+        CT.contains(trueSupport.getIntIterator.next()) && RoaringBitmap.andNot(trueSupport, RT).getCardinality == CT.getCardinality
+    }
+
+    /**
+     * @param sItemset trajectory S-itemset
+     * @param CT       current transactions
+     * @param RT       remaining transactions
+     * @return true if the S-itemset can potentially produce a valid co-movement pattern
+     */
+    def isExtendable(sItemset: RoaringBitmap, CT: RoaringBitmap, RT: RoaringBitmap, trueSupport: RoaringBitmap, minsize: Int, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]]): Boolean = {
+        sItemset.getCardinality >= minsize && isValid(RoaringBitmap.or(CT, RT), minsup, brdNeighborhood) && isNonRedundant(CT, RT, trueSupport)
+    }
+
+    /**
+     * Verify if the given set of tiles satisfies the length and shape constraints.
+     * Length and shape constraints for swarm/co-location: tiles.getCardinality >= minsup
+     * Length and shape constraints for convoy/flow: tiles contains at least a connected component of cardinality mLen
+     *
+     * @param tiles           a set of tiles
+     * @param mLen            minimum support
+     * @param brdNeighborhood neighborhood map
+     * @return true if the given set of tiles satisfies the length and shape constraints
+     */
+    def isValid(tiles: RoaringBitmap, mLen: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]]): Boolean = {
+        tiles.getCardinality >= mLen && (brdNeighborhood.isEmpty || brdNeighborhood.nonEmpty && connectedComponent2(tiles, mLen, brdNeighborhood)._1 >= mLen)
+    }
+
+    private def connectedComponent2(sp: RoaringBitmap, minsup: Int, brdNeighborhood: Option[Broadcast[Map[Tid, RoaringBitmap]]], returnComponents: Boolean = false): (Int, RoaringBitmap) = {
+        if (brdNeighborhood.isEmpty) {
+            return (sp.getCardinality, sp)
+        }
+        var c = 0 // size of the connected component
+        val marked: mutable.Set[Int] = mutable.Set() // explored neighbors
+        var cc: RoaringBitmap = RoaringBitmap.bitmapOf() // current connected component
+        val ccs: RoaringBitmap = RoaringBitmap.bitmapOf() // components accumulator
+        var maxc = Int.MinValue
+        sp.forEach(toJavaConsumer({ tile: Integer => { // for each tile in the support
+            // if a connected component of at least minsup has not been found && the tile has been not visited yet
+            if ((returnComponents || c < minsup) && !marked.contains(tile)) {
+                c = 0 // reset the connected component
+                cc = RoaringBitmap.bitmapOf()
+
+                def connectedComponentRec(i: Int): Unit = { // recursive function
+                    marked += i // add the tile to the explored set
+                    c += 1 // increase the number of adjacent tiles
+                    if (returnComponents) {
+                        // add the adjacent tile
+                        cc.add(i)
+                    }
+                    // for each neighbor of the current tile, if the neighbor has been not explored yet ...
+                    val neighborhood: Option[RoaringBitmap] = brdNeighborhood.get.value.get(i)
+                    // not all neighborhoods are defined (for instance due to the pruning of tiles without a sufficient amount of trajectories)
+                    if (neighborhood.isDefined) {
+                        neighborhood.get.forEach(toJavaConsumer(i =>
+                            if ((returnComponents || c < minsup) && !marked.contains(i) && sp.contains(i)) {
+                                connectedComponentRec(i)
+                            }))
+                    }
+                }
+                connectedComponentRec(tile)
+                // add the connected component if big enough
+                maxc = Math.max(c, maxc)
+                if (returnComponents && c >= minsup) {
+                    ccs.or(cc)
+                }
+            }
+        }
+        }))
+        (maxc, ccs)
+    }
 
     /** Create a file at the specified path if it does not exists and write the stats tsv header. */
     def writeStatsToFile(fileName: String, inTable: String, minsize: Int, minsup: Int, nItemsets: Long,
                          storage_thr: Int, repfreq: Int, limit: Int, // EFFICIENCY PARAMETERS
                          nexecutors: Int, ncores: Int, maxram: String, // SPARK CONFIGURATION
-                         timescale: TemporalScale, unit_t: Int, bin_t: Int, eps_t: Double,
+                         timescale: TemporalScale, bin_t: Int, eps_t: Double,
                          bin_s: Int, eps_s: Double, // EFFECTIVENESS PARAMETERS
-                         nTransactions: Long, brdTrajInCell_bytes: Int, brdNeighborhood_bytes: Int): Unit = {
+                         nTransactions: Long, brdTrajInCell_bytes: Int, brdNeighborhood_bytes: Int,
+                         acc: LongAccumulator, acc2: LongAccumulator, accmLen: LongAccumulator,
+                         accmCrd: LongAccumulator, accmSup: LongAccumulator): Unit = {
         val fileExists = Files.exists(Paths.get(fileName))
         val outputFile = new File(fileName)
         outputFile.createNewFile()
         val bw = new BufferedWriter(new FileWriter(fileName, fileExists))
         if (!fileExists) {
-            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,brdCellInTraj_bytes,nTransactions,nItems,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,unit_t,bin_t,eps_t,bin_s,eps_s\n".replace("_", "").toLowerCase)
+            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,nTransactions,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s,exploredpatterns,exploredpatterns2,accmLen,accmCrd,accmSup\n".replace("_", "").toLowerCase)
         }
-        bw.write(s"${CustomTimer.getElapsedTime()},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$unit_t,$bin_t,$eps_t,$bin_s,$eps_s\n")
+        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s,${acc.value},${acc2.value},${1.0 * accmLen.value / acc2.value},${1.0 * accmCrd.value / acc2.value},${1.0 * accmSup.value / acc2.value}\n")
         bw.close()
     }
 
@@ -194,10 +267,10 @@ object Utils {
         }
 
         /** @return elapsed time */
-        def getElapsedTime(): Long = System.currentTimeMillis() - startTime
+        def getElapsedTime: Long = System.currentTimeMillis() - startTime
 
         /** @return elapsed time since previous invocation of this method */
-        def getRelativeElapsedTime(): Long = {
+        def getRelativeElapsedTime: Long = {
             val newtime = System.currentTimeMillis() - time
             time = newtime
             time
@@ -222,8 +295,10 @@ object Utils {
      * @param maxram     maxram
      * @return start a new spark context
      */
-    def startSparkSession(appName: String = "CTM_test", nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM, shufflepartitions: Int = SPARK_SQL_TEST_SHUFFLE_PARTITIONS, master: String = "local[*]"): SparkSession =
-        SparkSession.builder()
+    def startSparkSession(appName: String = "CTM_test", nexecutors: Int = NEXECUTORS, ncores: Int = NCORES, maxram: String = MAXRAM, shufflepartitions: Int = SPARK_SQL_TEST_SHUFFLE_PARTITIONS, master: String = "local[*]"): SparkSession = {
+        Logger.getLogger("org").setLevel(Level.ERROR)
+        Logger.getLogger("akka").setLevel(Level.ERROR)
+        val session = SparkSession.builder()
             .appName(appName)
             .master(master)
             .config("spark.shuffle.reduceLocality.enabled", value = false)
@@ -235,4 +310,7 @@ object Utils {
             .config("spark.sql.legacy.allowCreatingManagedTableUsingNonemptyLocation", "true")
             .enableHiveSupport
             .getOrCreate
+        session.sparkContext.setLogLevel("ERROR")
+        session
+    }
 }
