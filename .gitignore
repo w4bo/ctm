@@ -1,3 +1,4 @@
+zeppelin_notebooks/
 outputs/*.csv
 results/dummy.pdf
 metastore_db/
