@@ -38,6 +38,8 @@ object Utils {
     val FIELD_SEPARATOR = "\\t"
     /** Column name for the time bucket inside the trajectory and cell tables. */
     val TIME_BUCKET_COLUMN_NAME: String = "time_bucket"
+    /** Column name for the semantic features. */
+    val SEMF_COLUMN_NAME: String = "semf"
     /** Time distance column name for the space table. */
     val SPACE_DISTANCE_COLUMN_NAME = "space_distance"
     /** Time distance column name for the neighbourhood table. */
@@ -53,13 +55,25 @@ object Utils {
     /** Timestamp field name. */
     val TIMESTAMP_FIELD_NAME = "timestamp"
     /** Default schema for every input database that will be processed by CTM algorithm. */
-    val INPUT_REQUIRED_SCHEMA = StructType(
+    val INPUT_REQUIRED_SCHEMA: StructType = StructType(
         Array(
             StructField(USER_ID_FIELD, StringType),
             StructField(TRAJECTORY_ID_FIELD, StringType),
             StructField(LATITUDE_FIELD_NAME, DoubleType),
             StructField(LONGITUDE_FIELD_NAME, DoubleType),
             StructField(TIMESTAMP_FIELD_NAME, LongType)
+        )
+    )
+    /** Default schema for every input database that will be processed by CTM algorithm. */
+    val INPUT_REQUIRED_SCHEMA_SEMANTIC: StructType = StructType(
+        Array(
+            StructField(USER_ID_FIELD, StringType),
+            StructField(TRAJECTORY_ID_FIELD, StringType),
+            StructField(LATITUDE_FIELD_NAME, DoubleType),
+            StructField(LONGITUDE_FIELD_NAME, DoubleType),
+            StructField(TIMESTAMP_FIELD_NAME, LongType),
+            StructField("SEM1", StringType),
+            StructField("SEM2", StringType)
         )
     )
 

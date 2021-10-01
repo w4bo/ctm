@@ -1,5 +1,6 @@
 package it.unibo.big
 
+import it.unibo.big.Main._
 import it.unibo.big.Utils._
 import it.unibo.big.temporal.TemporalCellBuilder._
 import it.unibo.big.temporal.{TemporalCellBuilder, TemporalScale}
@@ -10,10 +11,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.roaringbitmap.RoaringBitmap
 import org.rogach.scallop.ScallopConf
+import it.unibo.big.CTM
 
-class Main {}
-
-/** This is the main class of the project */
 object Main {
     val linesToPrint = 20
     var debug: Boolean = _
@@ -40,6 +39,46 @@ object Main {
     var bin_s: Int = _
     var eps_s: Double = _
     var euclidean: Boolean = _
+    var additionalfeatures: List[String] = _
+
+    /**
+     * Main of the whole application.
+     *
+     * @param args arguments
+     */
+    def main(args: Array[String]): Unit = {
+        val conf = new Conf(args)
+        val debug: Boolean = conf.debug()
+        if (args.nonEmpty && !debug) {
+            new Main().run(
+                inTable = conf.tbl(),
+                euclidean = conf.euclidean(),
+                droptable = conf.droptable(),
+                timeScale = TemporalScale(conf.timescale.getOrElse(NoScale.value)),
+                bin_t = conf.bint.getOrElse(0),
+                eps_t = conf.epst.getOrElse(Double.PositiveInfinity),
+                eps_s = conf.epss.getOrElse(Double.PositiveInfinity),
+                bin_s = conf.bins(),
+                nexecutors = conf.nexecutors(),
+                ncores = conf.ncores(),
+                maxram = conf.maxram(),
+                storage_thr = conf.storagethr.getOrElse(1000000),
+                repfreq = conf.repfreq(),
+                limit = conf.limit.getOrElse(conf.minsize() * 1000),
+                minsize = conf.minsize(),
+                minsup = conf.minsup(),
+                platoon = conf.platoon(),
+                returnResult = conf.returnresult(),
+                additionalfeatures = conf.additionalfeatures()
+            )
+        }
+    }
+}
+
+/** This is the main class of the project */
+class Main {
+    var neighbors: Map[Tid, RoaringBitmap] = Map()
+    var initalClusters: Int = _
     private val L = Logger.getLogger(classOf[Main])
 
     // scalastyle:off
@@ -72,23 +111,25 @@ object Main {
             timeScale: TemporalScale, bin_t: Int = 1, eps_t: Double = Double.PositiveInfinity,
             bin_s: Int, eps_s: Double = Double.PositiveInfinity, // EFFECTIVENESS PARAMETERS
             debugData: Seq[(Tid, Vector[Itemid])] = Seq(), neighs: Map[Tid, RoaringBitmap] = Map(), spark: Option[SparkSession] = None, // INPUTS
-            returnResult: Boolean = false, droptable: Boolean = false, euclidean: Boolean = false): (Long, Array[(RoaringBitmap, Int, Int)], Long) = {
-        this.inTable = inTable
-        this.debug = debugData.nonEmpty
-        this.returnResult = returnResult
-        this.partitions = nexecutors * ncores * 3
-        this.storage_thr = storage_thr
-        this.repfreq = repfreq
-        this.limit = limit
-        this.nexecutors = nexecutors
-        this.ncores = ncores
-        this.maxram = maxram
-        this.timeScale = timeScale
-        this.bin_t = bin_t
-        this.eps_t = eps_t
-        this.bin_s = bin_s
-        this.eps_s = eps_s
-        this.euclidean = euclidean
+            returnResult: Boolean = false, droptable: Boolean = false, euclidean: Boolean = false, additionalfeatures: List[String] = List()): (Long, Array[(RoaringBitmap, Int, Int)], Long) = {
+
+        Main.inTable = inTable
+        Main.debug = debugData.nonEmpty
+        Main.returnResult = returnResult
+        Main.partitions = nexecutors * ncores * 3
+        Main.storage_thr = storage_thr
+        Main.repfreq = repfreq
+        Main.limit = limit
+        Main.nexecutors = nexecutors
+        Main.ncores = ncores
+        Main.maxram = maxram
+        Main.timeScale = timeScale
+        Main.bin_t = bin_t
+        Main.eps_t = eps_t
+        Main.bin_s = bin_s
+        Main.eps_s = eps_s
+        Main.euclidean = euclidean
+        Main.additionalfeatures = additionalfeatures
 
         val temporaryTableName: String = // Define the generic name of the support table, based on the relevant parameters for cell creation.
             s"-tbl_${inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length)}" +
@@ -111,7 +152,7 @@ object Main {
         outTable2 = s"results/CTM_stats.csv"
 
         val sparkSession = spark.getOrElse(startSparkSession(conf, nexecutors, ncores, maxram, SPARK_SQL_SHUFFLE_PARTITIONS, "yarn"))
-        var neighbors: Map[Tid, RoaringBitmap] = Map()
+
         val trans: RDD[(Tid, Itemid)] =
             if (debug) {
                 transactionTable = inTable
@@ -127,7 +168,7 @@ object Main {
                 cellToIDTable = s"tmp_celltoid$temporaryTableName".replace("-", "__") // Cells with ids
                 neighborhoodTable = s"tmp_neighborhood$temporaryTableName".replace("-", "__") // Neighborhoods
                 val inputDFtable = s"tmp_abstract$temporaryTableName".replace("-", "__")
-                L.info(s"""--- Writing to
+                println(s"""--- Writing to
                        |        $inputDFtable
                        |        $summaryTable
                        |        $itemsetTable
@@ -152,7 +193,7 @@ object Main {
                 if (!sparkSession.catalog.tableExists(DB_NAME, transactionTable)) {
                     // Create time bin from timestamp in a temporal table `inputDFtable`
                     L.debug(s"--- Getting data from $inTable...")
-                    getData(sparkSession, inTable, inputDFtable, timeScale, bin_t, euclidean, bin_s)
+                    getData(sparkSession, inTable, inputDFtable, timeScale, bin_t, euclidean, bin_s, additionalfeatures)
                     sparkSession.sql(s"select * from $inputDFtable").show(linesToPrint)
                     // create trajectory abstractions from the `inputDFtable`, and store it to the `transactionTable` table
                     L.debug(s"--- Generating $transactionTable...")
@@ -164,7 +205,7 @@ object Main {
                 }
                 if (!sparkSession.catalog.tableExists(DB_NAME, neighborhoodTable)) {
                     // create the table with all neighbors for each cell
-                    if (!eps_s.isInfinite || !eps_t.isInfinite) {
+                    if (!eps_s.isInfinite || !eps_t.isInfinite || additionalfeatures.nonEmpty) {
                         L.debug(s"--- Generating $neighborhoodTable...")
                         createNeighborhood(sparkSession, cellToIDTable, neighborhoodTable, timeScale, euclidean)
                         sparkSession.sql(s"select * from $neighborhoodTable").show(linesToPrint)
@@ -194,7 +235,7 @@ object Main {
              * Carpenter by default would not include this, thanks to this the algorithm will be able to use bounds on time and space
              * ************************************************************************************************************ */
             neighbors =
-                if (!eps_s.isInfinite || !eps_t.isInfinite) {
+                if (!eps_s.isInfinite || !eps_t.isInfinite || additionalfeatures.nonEmpty) {
                     val spaceThreshold = if (eps_s.isInfinite) { None } else { Some(eps_s * bin_s * DEFAULT_CELL_SIDE) }
                     val timeThreshold = if (eps_t.isInfinite) { None } else { Some(eps_t) }
                     TemporalCellBuilder.broadcastNeighborhood(sparkSession, spaceThreshold, timeThreshold, neighborhoodTable)
@@ -211,38 +252,6 @@ object Main {
 
         /** run the algorithm. */
         CTM.CTM(sparkSession, trans, brdNeighborhood, minsup, minsize, platoon)
-    }
-
-    /**
-     * Main of the whole application.
-     *
-     * @param args arguments
-     */
-    def main(args: Array[String]): Unit = {
-        val conf = new Conf(args)
-        val debug: Boolean = conf.debug()
-        if (args.nonEmpty && !debug) {
-            run(
-                inTable = conf.tbl(),
-                euclidean = conf.euclidean(),
-                droptable = conf.droptable(),
-                timeScale = TemporalScale(conf.timescale.getOrElse(NoScale.value)),
-                bin_t = conf.bint.getOrElse(0),
-                eps_t = conf.epst.getOrElse(Double.PositiveInfinity),
-                eps_s = conf.epss.getOrElse(Double.PositiveInfinity),
-                bin_s = conf.bins(),
-                nexecutors = conf.nexecutors(),
-                ncores = conf.ncores(),
-                maxram = conf.maxram(),
-                storage_thr = conf.storagethr.getOrElse(1000000),
-                repfreq = conf.repfreq(),
-                limit = conf.limit.getOrElse(conf.minsize() * 1000),
-                minsize = conf.minsize(),
-                minsup = conf.minsup(),
-                platoon = conf.platoon(),
-                returnResult = conf.returnresult()
-            )
-        }
     }
 }
 
@@ -273,5 +282,6 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
     val droptable = opt[Boolean]()
     val returnresult = opt[Boolean]()
     val querytype = opt[String]()
+    val additionalfeatures = opt[List[String]]()
     verify()
 }

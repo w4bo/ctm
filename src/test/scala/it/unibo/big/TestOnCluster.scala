@@ -2,6 +2,7 @@ package it.unibo.big
 
 import it.unibo.big.TestOnCluster.sparkSession
 import it.unibo.big.temporal.TemporalScale.{AbsoluteScale, DailyScale, NoScale, WeeklyScale}
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Row, SparkSession}
 import org.junit.jupiter.api.Assertions._
 import org.junit.jupiter.api.{BeforeAll, Test}
@@ -18,20 +19,28 @@ object TestOnCluster {
 class TestOnCluster {
     type cuteCluster = (RoaringBitmap, Int, Int)
 
-    def loadAndStoreDataset(fileLines: Array[String], tempTableName: String, spark: SparkSession): Unit = {
-        val inputRDD =
+    def loadAndStoreDataset(fileLines: Array[String], tempTableName: String, spark: SparkSession, semantic: Boolean = false): Unit = {
+        val inputRDD: RDD[Row] =
             spark
                 .sparkContext
                 .parallelize(fileLines)
                 .map(_.split(Utils.FIELD_SEPARATOR))
-                .map(e => Row(e(0), e(0), e(1).toDouble, e(2).toDouble, e(3).toLong))
-        spark.createDataFrame(inputRDD, Utils.INPUT_REQUIRED_SCHEMA).createOrReplaceTempView(tempTableName)
+                .map(e =>
+                    if (!semantic) {
+                        // userid, trajectoryid, latitude, longitude, timestamp
+                        Row(e(0), e(0), e(1).toDouble, e(2).toDouble, e(3).toLong)
+                    } else {
+                        // userid, trajectoryid, latitude, longitude, timestamp, sem1, sem2
+                        Row(e(0), e(0), e(1).toDouble, e(2).toDouble, e(3).toLong, e(4), e(5))
+                    }
+                )
+        spark.createDataFrame(inputRDD, if (!semantic) Utils.INPUT_REQUIRED_SCHEMA else Utils.INPUT_REQUIRED_SCHEMA_SEMANTIC).createOrReplaceTempView(tempTableName)
     }
 
     @Test def testDB(): Unit = {
-        var res9 = Main.run(spark = Some(sparkSession), droptable = true, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
+        var res9 = new Main().run(spark = Some(sparkSession), droptable = true, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale, returnResult = true)
         assertEquals(2466, res9._2.length)
-        res9 = Main.run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
+        res9 = new Main().run(spark = Some(sparkSession), droptable = false, minsize = 1, minsup = 25, bin_s = 10, inTable = "trajectory.besttrj_standard", timeScale = NoScale)
         assertEquals(2466, res9._1)
         assertTrue(2466 > res9._2.length)
     }
@@ -58,9 +67,169 @@ class TestOnCluster {
     /**
      * Test a pattern where the trajectories are in three near cells.
      */
+    @Test def testAbsoluteContiguityClustersWithSemantic(): Unit = {
+        val input: Array[String] =
+            Array(
+                "01\t0\t0\t1\tMOVE\tSPORT", //
+                "01\t0\t0\t2\tMOVE\tSPORT", //
+                "01\t0\t0\t3\tMOVE\tSPORT", //
+                "02\t0\t0\t1\tMOVE\tSPORT", //
+                "02\t0\t0\t2\tMOVE\tSPORT", //
+                "02\t0\t0\t3\tMOVE\tSPORT")
+        val view = "simple_table_view_sem1"
+        loadAndStoreDataset(input, view, sparkSession, semantic = true)
+        val clusters = new Main().run(spark = Some(sparkSession), droptable = true, inTable = view, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true, additionalfeatures = List("SEM1", "SEM2"))
+        val expectedClusters: Set[(RoaringBitmap, Int, Int)] = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
+        assertEquals(expectedClusters, clusters._2.toSet)
+    }
+
+    /**
+     * Test a pattern where the trajectories are in three near cells.
+     */
+    @Test def testAbsoluteContiguityClustersWithSemantic2(): Unit = {
+        val input: Array[String] =
+            Array(
+                "01\t0\t0\t1\tMOVE\tSPORT", //
+                "01\t0\t0\t2\tMOVE\tSPORT", //
+                "01\t0\t0\t3\tMOVE\tSPORT", //
+                "02\t0\t0\t1\tMOVE\tSTUDY", //
+                "02\t0\t0\t2\tMOVE\tSTUDY", //
+                "02\t0\t0\t3\tMOVE\tSTUDY")
+        val view = "simple_table_view_sem2"
+        loadAndStoreDataset(input, view, sparkSession, semantic = true)
+        val clusters = new Main().run(spark = Some(sparkSession), droptable = true, inTable = view, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true, additionalfeatures = List("SEM1", "SEM2"))
+        assertEquals(Set(), clusters._2.toSet)
+    }
+
+    /**
+     * Test a pattern where the trajectories are in three near cells.
+     */
+    @Test def testAbsoluteContiguityClustersWithSemantic3(): Unit = {
+        var input: Array[String] =
+            Array(
+                "01\t0\t0\t1\tMOVE\tSPORT", //
+                "01\t0\t0\t2\tMOVE\tSPORT", //
+                "01\t0\t0\t3\tMOVE\tSPORT", //
+                "02\t0\t0\t1\tMOVE\tSPORT", //
+                "02\t0\t0\t2\tMOVE\tSPORT", //
+                "02\t0\t0\t3\tMOVE\tSPORT", //
+                "03\t0\t0\t1\tMOVE\tSTUDY", //
+                "03\t0\t0\t2\tMOVE\tSTUDY", //
+                "03\t0\t0\t3\tMOVE\tSTUDY")
+        var expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
+        convoy(input, expectedClusters = expectedClusters, minsize = 2, minsup = 2, nneighbors = 3, semantic = true)
+
+        input =
+            Array(
+                "01\t0\t0\t1\tMOVE\tSPORT", //
+                "01\t0\t0\t2\tMOVE\tSPORT", //
+                "01\t0\t0\t3\tMOVE\tSPORT", //
+                "02\t0\t0\t1\tMOVE\tSPORT", //
+                "02\t0\t0\t2\tMOVE\tSPORT", //
+                "02\t0\t0\t3\tMOVE\tSPORT", //
+                "03\t0\t0\t1\tMOVE\tSTUDY", //
+                "03\t0\t0\t2\tMOVE\tSTUDY", //
+                "03\t0\t0\t3\tMOVE\tSTUDY", //
+                "04\t0\t0\t1\tMOVE\tSTUDY", //
+                "04\t0\t0\t2\tMOVE\tSTUDY", //
+                "04\t0\t0\t3\tMOVE\tSTUDY")
+        expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3), (RoaringBitmap.bitmapOf(2, 3), 2, 3))
+        convoy(input, expectedClusters = expectedClusters, minsize = 2, minsup = 2, nneighbors = 6, semantic = true)
+    }
+
+//    /**
+//     * Test a pattern where the trajectories are in three near cells.
+//     */
+//    @Test def testAbsoluteContiguityClustersWithSemantic4(): Unit = {
+//        // droptable = true,
+//        val clusters = new Main().run(spark = Some(sparkSession), inTable = "trajectory.hermopoulis_standard", minsize = 1050, minsup = 12, bin_s = 19, timeScale = NoScale, bin_t = 1, eps_t = Double.PositiveInfinity, returnResult = true, additionalfeatures = List("MOBILITY", "PLACE", "ACTIVITY"), nexecutors = 5, ncores = 3)
+//        val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
+//        assertEquals(expectedClusters.size, clusters._2.length)
+//    }
+
+    /**
+     * Test a pattern where the trajectories are in three near cells.
+     */
+    @Test def testAbsoluteContiguityClustersWithSemantic5(): Unit = {
+        val input: Array[String] =
+            Array(
+                "01\t0\t0\t1\tMOVE\tSPORT", //
+                "02\t0\t0\t1\tMOVE\tSPORT", //
+                "02\t0\t0\t2\tMOVE\tSPORT", //
+                "03\t0\t0\t1\tMOVE\tSPORT", //
+                "03\t0\t0\t2\tMOVE\tSPORT", //
+                "03\t0\t0\t3\tMOVE\tSPORT")
+        convoy(input, nclusters = 3, nneighbors = 3, semantic = true)
+    }
+
+    /**
+     * Test a pattern where the trajectories are in three near cells.
+     */
+    @Test def testAbsoluteContiguityClustersWithSemantic6(): Unit = {
+        val input: Array[String] =
+        Array(
+            "01\t0\t0\t1\tMOVE\tSPORT", //
+            "02\t0\t0\t1\tMOVE\tSPORT", //
+            "02\t0\t0\t2\tMOVE\tSPORT", //
+            "03\t0\t0\t1\tMOVE\tSTUDY", //
+            "03\t0\t0\t2\tMOVE\tSTUDY", //
+            "03\t0\t0\t3\tMOVE\tSTUDY")
+        convoy(input, nclusters = 3, nneighbors = 5, semantic = true)
+    }
+
+    /**
+     * Test a pattern where the trajectories are in three near cells.
+     */
+    @Test def testAbsoluteContiguityClustersWithSemantic7(): Unit = {
+        val input: Array[String] =
+        Array(
+            "01\t0\t0\t1\tMOVE\tSTUDY", //
+            "02\t0\t0\t1\tMOVE\tSPORT", //
+            "02\t0\t0\t2\tMOVE\tSPORT", //
+            "03\t0\t0\t1\tMOVE\tSPORT", //
+            "03\t0\t0\t2\tMOVE\tSPORT", //
+            "03\t0\t0\t3\tMOVE\tSPORT")
+        convoy(input, nclusters = 3, nneighbors = 3, semantic = true)
+    }
+
+    def convoy(input: Array[String], semantic: Boolean = false, minsize: Int = 1, minsup: Int = 1, expectedClusters: Set[(RoaringBitmap, Int, Int)] = Set(), nclusters: Int = -1, nneighbors: Int = -1): Unit = {
+        // It is possible that, starting from a single cluster, many clusters can be generated.
+        // Consider the following example where the first tile T1 contains A,B,C, the second tile T2 contains B,C and the third tile T3 contains C
+        // Since sup(B,C)={T1, T2} and sup(C)={T1, T2, T3}; B,C and C can only be generated starting from T1 (i.e., from a single initial cluster)
+        val view = "view_" + input.hashCode()
+        loadAndStoreDataset(input, view, sparkSession, semantic = semantic)
+        val m = new Main()
+        val clusters = m.run(spark = Some(sparkSession), droptable = true, inTable = view, minsize = minsize, minsup = minsup, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true, additionalfeatures = if (semantic) List("SEM1", "SEM2") else List())
+        if (expectedClusters.nonEmpty) {
+            assertEquals(expectedClusters, clusters._2.toSet)
+        }
+        if (nclusters >= 0) {
+            assertEquals(nclusters, clusters._2.length)
+        }
+        if (nneighbors >= 0) {
+            assertEquals(nneighbors, m.neighbors.keySet.size) // 3 and not 4, since tuples with no neighbors are not generated
+        }
+    }
+    /**
+     * Test a pattern where the trajectories are in three near cells.
+     */
+    @Test def testAbsoluteContiguityClustersWithSemantic8(): Unit = {
+        val input: Array[String] = Array(
+            "01\t0\t0\t1\tMOVE\tSTUDY", //
+            "01\t0\t0\t2\tMOVE\tSTUDY", //
+            "02\t0\t0\t1\tMOVE\tSPORT", //
+            "02\t0\t0\t2\tMOVE\tSPORT", //
+            "03\t0\t0\t1\tMOVE\tSPORT", //
+            "03\t0\t0\t2\tMOVE\tSPORT", //
+            "03\t0\t0\t3\tMOVE\tSPORT")
+        convoy(input, nclusters = 3, nneighbors = 5, semantic = true)
+    }
+
+    /**
+     * Test a pattern where the trajectories are in three near cells.
+     */
     @Test def testAbsoluteContiguityClusters(): Unit = {
-        val test_name = "AbsoluteContiguityClusters"
-        val absoluteContiguityInputSet: Array[String] =
+        val input: Array[String] =
             Array(
                 "01\t0\t0\t1", //
                 "01\t0\t0\t2", //
@@ -68,21 +237,21 @@ class TestOnCluster {
                 "02\t0\t0\t1", //
                 "02\t0\t0\t2", //
                 "02\t0\t0\t3")
-        val absoluteContiguityTableView = "simple_table_view"
-        loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = absoluteContiguityTableView, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
+        val view = "simple_table_view"
+        loadAndStoreDataset(input, view, sparkSession)
+        val clusters = new Main().run(spark = Some(sparkSession), droptable = true, inTable = view, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /**
      * Test a pattern where the trajectories are in three contigued cells.
      */
     @Test def testAbsoluteContiguityClustersNOResult(): Unit = {
-        val absoluteContiguityInputSet: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t3", "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4")
-        val absoluteContiguityTableView = "simple_table_view_NOresult"
-        loadAndStoreDataset(absoluteContiguityInputSet, absoluteContiguityTableView, sparkSession)
-        val absoluteContiguityClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = absoluteContiguityTableView, minsize = 2, minsup = 3, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
+        val input: Array[String] = Array("01\t0\t0\t1", "01\t0\t0\t2", "01\t0\t0\t3", "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4")
+        val view = "simple_table_view_NOresult"
+        loadAndStoreDataset(input, view, sparkSession)
+        val absoluteContiguityClusters = new Main().run(spark = Some(sparkSession), droptable = true, inTable = view, minsize = 2, minsup = 3, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
         assertTrue(absoluteContiguityClusters._2.isEmpty)
     }
 
@@ -94,9 +263,9 @@ class TestOnCluster {
             "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t4", "02\t0\t0\t6")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 3, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 2, returnResult = true)
+        val clusters = new Main().run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 3, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 2, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /** Check that contiguity works also with relaxed time constrains. */
@@ -114,9 +283,9 @@ class TestOnCluster {
                 "02\t0\t0\t7") //
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 2, returnResult = true)
+        val clusters = new Main().run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 2, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /**
@@ -129,7 +298,7 @@ class TestOnCluster {
             "02\t0\t0\t1", "02\t0\t0\t2", "02\t0\t0\t5", "02\t0\t0\t7")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -140,7 +309,7 @@ class TestOnCluster {
             eps_t = 2,
             returnResult = true
         )
-        assertTrue(cuteClusters._2.isEmpty)
+        assertTrue(clusters._2.isEmpty)
     }
 
     /** This test include a cell with an superior ID that contains the pattern required but is excluded for some spatio-temporal reason. */
@@ -151,7 +320,7 @@ class TestOnCluster {
             "02\t10\t10\t1", "02\t0\t0\t3", "02\t0\t0\t4", "02\t0\t0\t5")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -163,7 +332,7 @@ class TestOnCluster {
             returnResult = true
         )
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /**
@@ -177,7 +346,7 @@ class TestOnCluster {
             "02\t10\t10\t1", "02\t0\t0\t3", "02\t10\t10\t4", "02\t10\t10\t5")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -189,7 +358,7 @@ class TestOnCluster {
             returnResult = true
         )
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /**
@@ -213,14 +382,14 @@ class TestOnCluster {
             "02\t0\t0\t8")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
+        val clusters = new Main().run(spark = Some(sparkSession), droptable = true, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, timeScale = AbsoluteScale, bin_t = 1, eps_t = 1, returnResult = true)
         val expectedClusters = Set(
             (RoaringBitmap.bitmapOf(0, 1), 2, 6)
             // (RoaringBitmap.bitmapOf(1, 2), 2),
             // (RoaringBitmap.bitmapOf(1, 2), 2),
             // (RoaringBitmap.bitmapOf(1, 2), 2)
         )
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
         // println(s"----$test_name: PASSED------")
     }
 
@@ -239,7 +408,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -257,7 +426,7 @@ class TestOnCluster {
             (RoaringBitmap.bitmapOf(3, 4), 2, 4),
             (RoaringBitmap.bitmapOf(4, 5), 2, 4)
         )
-        assertEquals(expectedClusters.size, cuteClusters._1)
+        assertEquals(expectedClusters.size, clusters._1)
     }
 
     /** Test the recognition of a Convoy pattern. */
@@ -273,7 +442,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -288,7 +457,7 @@ class TestOnCluster {
             (RoaringBitmap.bitmapOf(2, 3), 2, 3),
             (RoaringBitmap.bitmapOf(4, 5), 2, 3)
         )
-        assertEquals(expectedClusters.size, cuteClusters._1)
+        assertEquals(expectedClusters.size, clusters._1)
     }
 
     /** Test the recognition of a Convoy pattern. */
@@ -300,7 +469,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -314,7 +483,7 @@ class TestOnCluster {
         val expectedClusters = Set(
             (RoaringBitmap.bitmapOf(0, 1), 2, 6)
         )
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /** Test the recognition of a Convoy pattern. */
@@ -328,7 +497,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -342,7 +511,7 @@ class TestOnCluster {
         val expectedClusters = Set(
             (RoaringBitmap.bitmapOf(0, 1), 2, 6)
         )
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /** Test the recognition of a Convoy pattern. */
@@ -354,7 +523,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -366,7 +535,7 @@ class TestOnCluster {
             returnResult = true
         )
         val expectedClusters = Set()
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /**
@@ -384,7 +553,7 @@ class TestOnCluster {
         )
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             inTable = tableName,
             minsize = 2,
@@ -402,7 +571,7 @@ class TestOnCluster {
             (RoaringBitmap.bitmapOf(3, 4), 2, 3),
             (RoaringBitmap.bitmapOf(4, 5), 2, 4)
         )
-        assertEquals(expectedClusters.size, cuteClusters._1)
+        assertEquals(expectedClusters.size, clusters._1)
     }
 
     @Test def testWeeklyContiguityData(): Unit = {
@@ -420,7 +589,7 @@ class TestOnCluster {
                 s"02\t0\t0\t$monday12AMStamp")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             timeScale = DailyScale,
             droptable = true,
             inTable = tableName,
@@ -432,7 +601,7 @@ class TestOnCluster {
             returnResult = true
         )
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 3))
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /**
@@ -451,7 +620,7 @@ class TestOnCluster {
             s"02\t0\t0\t$monday13PMStamp", s"02\t0\t0\t$monday14PMStamp")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession),
+        val clusters = new Main().run(spark = Some(sparkSession),
             droptable = true,
             timeScale = DailyScale,
             inTable = tableName,
@@ -463,7 +632,7 @@ class TestOnCluster {
             returnResult = true
         )
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /** Check Convoy patterns on Weekly based definition. */
@@ -480,9 +649,9 @@ class TestOnCluster {
             s"02\t0\t0\t$monday01AMStamp", s"02\t0\t0\t$monday02AMStamp")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, timeScale = DailyScale, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, bin_t = 1, eps_t = 1, returnResult = true)
+        val clusters = new Main().run(spark = Some(sparkSession), droptable = true, timeScale = DailyScale, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, bin_t = 1, eps_t = 1, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 4))
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 
     /** Check Convoy patterns on Weekly based definition. */
@@ -503,8 +672,8 @@ class TestOnCluster {
             s"02\t0\t0\t$monday02AMStamp")
         val tableName = s"tmp_$test_name"
         loadAndStoreDataset(inputSet, tableName, sparkSession)
-        val cuteClusters = Main.run(spark = Some(sparkSession), droptable = true, timeScale = WeeklyScale, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, returnResult = true)
+        val clusters = new Main().run(spark = Some(sparkSession), droptable = true, timeScale = WeeklyScale, inTable = tableName, minsize = 2, minsup = 2, bin_s = 1, returnResult = true)
         val expectedClusters = Set((RoaringBitmap.bitmapOf(0, 1), 2, 2))
-        assertEquals(expectedClusters, cuteClusters._2.toSet)
+        assertEquals(expectedClusters, clusters._2.toSet)
     }
 }

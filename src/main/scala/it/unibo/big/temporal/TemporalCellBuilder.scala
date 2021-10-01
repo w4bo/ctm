@@ -25,12 +25,12 @@ object TemporalCellBuilder {
      * @param bin_s        the border of the cell specified by input parameters.
      * @throws InvalidTableSchemaException if the table schema does not meet the requirements.
      */
-    def getData(sparkSession: SparkSession, tableName: String, outTable: String, timescale: TemporalScale, bin_t: Int, euclidean: Boolean, bin_s: Int): Unit = {
+    def getData(sparkSession: SparkSession, tableName: String, outTable: String, timescale: TemporalScale, bin_t: Int, euclidean: Boolean, bin_s: Int, additionalfeatures: List[String]): Unit = {
         val binLatitude: String = computeLatitudeQuery(euclidean, bin_s)
         val binLongitude: String = computeLongitudeQuery(euclidean, bin_s)
         val binTime: String = computeTimeBin(timescale, bin_t)
         sparkSession.sql(
-            s"""select distinct $USER_ID_FIELD, $TRAJECTORY_ID_FIELD, $binLatitude as $LATITUDE_FIELD_NAME, $binLongitude as $LONGITUDE_FIELD_NAME, $binTime as $TIME_BUCKET_COLUMN_NAME
+            s"""select distinct $USER_ID_FIELD, $TRAJECTORY_ID_FIELD, $binLatitude as $LATITUDE_FIELD_NAME, $binLongitude as $LONGITUDE_FIELD_NAME, $binTime as $TIME_BUCKET_COLUMN_NAME ${ if (additionalfeatures.isEmpty) { "" } else { ", concat_ws('-'," + additionalfeatures.reduce(_ + ", " + _) + ") as semf " }}
                |from $tableName
                |""".stripMargin
         )
@@ -75,8 +75,8 @@ object TemporalCellBuilder {
     def getQuanta(sparkSession: SparkSession, transactionTable: String, outputTableName: String): Long = {
         val storeHiveTbl =
             s"""create table if not exists $outputTableName as
-               |    select distinct tid, $LATITUDE_FIELD_NAME, $LONGITUDE_FIELD_NAME, $TIME_BUCKET_COLUMN_NAME
-               |    from $transactionTable""".stripMargin
+               |    select distinct * from $transactionTable
+               """.stripMargin
         L.debug(s"--- Generating `$outputTableName` table\n$storeHiveTbl")
         sparkSession.sql(storeHiveTbl).count()
     }
@@ -92,9 +92,14 @@ object TemporalCellBuilder {
      */
     def mapToReferenceSystem(sparkSession: SparkSession, inTable: String, transactionTable: String, minSize: Int, minSup: Int, limit: Int): Unit = {
         import sparkSession.sqlContext.implicits._
-        var rdd: RDD[((String, String, Long), Array[(Double, Double, Long)])] = sparkSession.sql(s"select $USER_ID_FIELD, $TRAJECTORY_ID_FIELD, $LATITUDE_FIELD_NAME, $LONGITUDE_FIELD_NAME, $TIME_BUCKET_COLUMN_NAME from $inTable")
+        var rdd: RDD[((String, String, Long), Array[(Double, Double, Long, String)])] =
+            sparkSession.sql(s"select * from $inTable")
             .rdd
-            .map(row => ((row.get(0).asInstanceOf[String], row.get(1).asInstanceOf[String]), Array((row.get(2).asInstanceOf[Double], row.get(3).asInstanceOf[Double], row.get(4).asInstanceOf[Long]))))
+            .map(row => (
+                (row.get(0).asInstanceOf[String], row.get(1).asInstanceOf[String]),
+                Array((row.get(2).asInstanceOf[Double], row.get(3).asInstanceOf[Double], row.get(4).asInstanceOf[Long], if (row.size == 5) "" else row.get(5).asInstanceOf[String]))
+                )
+            )
             .reduceByKey(_ ++ _)
             .sortByKey()
             .zipWithIndex()
@@ -105,14 +110,14 @@ object TemporalCellBuilder {
         var loop = true
         while (loop) {
             rdd = rdd
-                .filter({ case ((userid: String, trajectoryid: String, itemid: Long), locations: Array[(Double, Double, Long)]) => locations.length >= minSup })
-                .flatMap({ case ((userid: String, trajectoryid: String, itemid: Long), locations: Array[(Double, Double, Long)]) =>
-                    locations.map({ case (latitude: Double, longitude: Double, timestamp: Long) => ((latitude, longitude, timestamp), Array((userid, trajectoryid, itemid))) })
+                .filter({ case ((userid: String, trajectoryid: String, itemid: Long), locations: Array[(Double, Double, Long, String)]) => locations.length >= minSup })
+                .flatMap({ case ((userid: String, trajectoryid: String, itemid: Long), locations: Array[(Double, Double, Long, String)]) =>
+                    locations.map({ case (latitude: Double, longitude: Double, timestamp: Long, semf: String) => ((latitude, longitude, timestamp, semf), Array((userid, trajectoryid, itemid))) })
                 })
                 .reduceByKey(_ ++ _)
-                .filter({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(String, String, Long)]) => trajectories.length >= minSize })
-                .flatMap({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(String, String, Long)]) =>
-                    trajectories.map({ case (userid, trajectoryid, itemid: Long) => ((userid, trajectoryid, itemid), Array((latitude, longitude, timestamp))) })
+                .filter({ case ((latitude: Double, longitude: Double, timestamp: Long, semf: String), trajectories: Array[(String, String, Long)]) => trajectories.length >= minSize })
+                .flatMap({ case ((latitude: Double, longitude: Double, timestamp: Long, semf: String), trajectories: Array[(String, String, Long)]) =>
+                    trajectories.map({ case (userid, trajectoryid, itemid: Long) => ((userid, trajectoryid, itemid), Array((latitude, longitude, timestamp, semf))) })
                 })
                 .reduceByKey(_ ++ _)
                 .cache()
@@ -123,20 +128,20 @@ object TemporalCellBuilder {
         }
 
         rdd
-            .flatMap({ case ((userid: String, trajectoryid: String, itemid: Long), locations: Array[(Double, Double, Long)]) =>
-                locations.map({ case (latitude: Double, longitude: Double, timestamp: Long) => ((latitude, longitude, timestamp), Array((itemid.toInt, userid, trajectoryid))) })
+            .flatMap({ case ((userid: String, trajectoryid: String, itemid: Long), locations: Array[(Double, Double, Long, String)]) =>
+                locations.map({ case (latitude: Double, longitude: Double, timestamp: Long, semf: String) => ((latitude, longitude, timestamp, semf), Array((itemid.toInt, userid, trajectoryid))) })
             })
             .reduceByKey(_ ++ _)
-            .filter({ case ((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(Int, String, String)]) => trajectories.length >= minSize })
+            .filter({ case ((latitude: Double, longitude: Double, timestamp: Long, semf: String), trajectories: Array[(Int, String, String)]) => trajectories.length >= minSize })
             .sortByKey()
             .zipWithIndex()
             .flatMap({
-                case (((latitude: Double, longitude: Double, timestamp: Long), trajectories: Array[(Int, String, String)]), tid: Long) =>
+                case (((latitude: Double, longitude: Double, timestamp: Long, semf: String), trajectories: Array[(Int, String, String)]), tid: Long) =>
                     trajectories.map({ case (itemid, userid, trajectoryid) =>
-                        (tid.toInt, itemid.toInt, userid, trajectoryid, latitude, longitude, timestamp)
+                        (tid.toInt, itemid.toInt, userid, trajectoryid, latitude, longitude, timestamp, semf)
                     })
             })
-            .toDF("tid", "itemid", USER_ID_FIELD, TRAJECTORY_ID_FIELD, LATITUDE_FIELD_NAME, LONGITUDE_FIELD_NAME, TIME_BUCKET_COLUMN_NAME)
+            .toDF("tid", "itemid", USER_ID_FIELD, TRAJECTORY_ID_FIELD, LATITUDE_FIELD_NAME, LONGITUDE_FIELD_NAME, TIME_BUCKET_COLUMN_NAME, SEMF_COLUMN_NAME)
             .write.mode(SaveMode.ErrorIfExists)
             .saveAsTable(transactionTable)
     }
@@ -155,9 +160,9 @@ object TemporalCellBuilder {
         val query =
             s"""select t.tid, n.tid as neigh,
                |       t.$LATITUDE_FIELD_NAME as l1, t.$LONGITUDE_FIELD_NAME as l2, n.$LATITUDE_FIELD_NAME as l3, n.$LONGITUDE_FIELD_NAME as l4,
-               |       t.$TIME_BUCKET_COLUMN_NAME as t1, n.$TIME_BUCKET_COLUMN_NAME as t2
+               |       t.$TIME_BUCKET_COLUMN_NAME as t1, n.$TIME_BUCKET_COLUMN_NAME as t2, n.$SEMF_COLUMN_NAME
                |from $cellTableName t, $cellTableName n
-               |where t.tid != n.tid
+               |where t.tid != n.tid and t.$SEMF_COLUMN_NAME = n.$SEMF_COLUMN_NAME
         """.stripMargin
         val computeTimeDistanceFunction: (Int, Int) => Int = temporalScale match {
             case DailyScale => (t1, t2) => WeeklyHourTimeStamp.computeDailyDistance(t1, t2)

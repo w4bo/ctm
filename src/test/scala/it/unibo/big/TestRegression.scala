@@ -27,11 +27,11 @@ class TestRegression {
         val bin_t: Int = 1
         val euclidean: Boolean = true
 
-        var res = Main.run(returnResult = true, spark = Some(sparkSession), inTable = inTable, limit = limit, minsize = minsize, minsup = minsup, bin_s = bin_s, bin_t = bin_t, timeScale = timescale, euclidean = euclidean)
+        var res = new Main().run(returnResult = true, spark = Some(sparkSession), inTable = inTable, limit = limit, minsize = minsize, minsup = minsup, bin_s = bin_s, bin_t = bin_t, timeScale = timescale, euclidean = euclidean)
         assertEquals(4, res._1)
 
         inTable = "ctm.join__oldenburg_standard_2000_distinct__4__5__20__absolute__1"
-        res = Main.run(returnResult = true, spark = Some(sparkSession), inTable = inTable, limit = limit, minsize = minsize, minsup = minsup, bin_s = bin_s, bin_t = bin_t, timeScale = timescale, euclidean = euclidean)
+        res = new Main().run(returnResult = true, spark = Some(sparkSession), inTable = inTable, limit = limit, minsize = minsize, minsup = minsup, bin_s = bin_s, bin_t = bin_t, timeScale = timescale, euclidean = euclidean)
         assertEquals(4, res._1)
     }
 

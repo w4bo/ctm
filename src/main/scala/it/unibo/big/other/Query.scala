@@ -30,7 +30,9 @@ object Query {
             timescale = TemporalScale(conf.timescale.getOrElse(AbsoluteScale.value)),
             euclidean = conf.euclidean.getOrElse(true),
             querytype = conf.querytype.getOrElse("export"),
-            limit = conf.limit.getOrElse(1000000)
+            limit = conf.limit.getOrElse(1000000),
+            limitItemsets = 1,
+            additionalFeatures = conf.additionalfeatures.getOrElse(List())
         )
     }
 
@@ -40,23 +42,25 @@ object Query {
      * @param minsup  Minimum support of the co-movement patterns (i.e., how long trajectories moved together)
      * @param bin_s   bin_s \in N (1, ..., n). Multiply cell size 123m x bin_s
      */
-    def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, querytype: String, limit: Int): Unit = {
+    def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, querytype: String, limit: Int, limitItemsets: Int, additionalFeatures: List[String]): Unit = {
         querytype match {
-            case "export" => exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit)
+            case "export" => exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures)
         }
     }
 
     /** Export original and binned data from the valid patterns */
-    def exportData(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, lmt: Int): Unit = {
+    def exportData(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String]): Unit = {
+        println(additionalFeatures)
         val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn")
         val epst = if (eps_t == Int.MaxValue) "Infinity" else eps_t.toString
         val sql = //  order by 2 desc limit 2
-            s"""select i.itemsetid, t.itemid, t.tid, t.latitude as bin_latitude, t.longitude as bin_longitude, t.time_bucket as bin_timestamp, u.tileid as in_support, s.userid, s.trajectoryid, s.`timestamp`, s.latitude, s.longitude
-               |from (select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__summary order by support desc limit 10) a
+            s"""select i.itemsetid, t.itemid, t.tid, t.latitude as bin_latitude, t.longitude as bin_longitude, t.time_bucket as bin_timestamp, u.tileid as in_support, s.userid, s.trajectoryid, s.`timestamp`, s.latitude, s.longitude ${if (additionalFeatures.isEmpty) "" else ", " + additionalFeatures.reduce(_ + ", " + _)}
+               |from (select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__summary order by support desc, size asc limit $limitItemsets) a
                |     join ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__itemset i on (a.itemsetid = i.itemsetid)
                |     join ctm.tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t} t on (t.itemid = i.itemid)
                |     left join ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__support u on (t.tid = u.tileid and i.itemsetid = u.itemsetid)
                |     join trajectory.${inTable} s on (t.userid = s.userid and t.trajectoryid = s.trajectoryid
+               |        ${if (additionalFeatures.isEmpty) "" else "and " + additionalFeatures.zipWithIndex.map(i => s"split(t.semf, '-')[${i._2}] = s.${i._1}").reduce(_ + " and " + _) }
                |        and ${computeTimeBin(timescale, bin_t, column = "s.`timestamp`")} = t.time_bucket
                |        and ${computeLatitudeQuery(euclidean, bin_s, "s.latitude")} = t.latitude
                |        and ${computeLongitudeQuery(euclidean, bin_s, "s.longitude")} = t.longitude)""".stripMargin
@@ -67,7 +71,7 @@ object Query {
         sparkSession.sql(sql).write.mode(SaveMode.Overwrite).saveAsTable(tablename)
 
         val pw = new PrintWriter(new File("saveQuery.sh"))
-        var hivequery = s"select itemsetid, itemid, tid, userid, trajectoryid, `timestamp`, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support from $tablename"
+        var hivequery = s"select itemsetid, itemid, tid, userid, trajectoryid, `timestamp`, latitude, longitude, bin_latitude, bin_longitude, bin_timestamp, in_support ${if (additionalFeatures.isEmpty) "" else ", " + additionalFeatures.reduce(_ + ", " + _)} from $tablename"
         var hiveCommand = s"hive -e 'set hive.cli.print.header=true; use ctm; $hivequery' | sed 's/[\\t]/,/g'  > $tablename.csv"
         println(hiveCommand)
         pw.write(s"$hiveCommand\n")
