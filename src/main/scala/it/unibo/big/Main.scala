@@ -281,7 +281,6 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
     val debug = opt[Boolean](required = true)
     val droptable = opt[Boolean]()
     val returnresult = opt[Boolean]()
-    val querytype = opt[String]()
     val additionalfeatures = opt[List[String]]()
     verify()
 }

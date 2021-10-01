@@ -6,6 +6,7 @@ import it.unibo.big.temporal.TemporalCellBuilder._
 import it.unibo.big.temporal.TemporalScale
 import it.unibo.big.temporal.TemporalScale._
 import org.apache.spark.sql.SaveMode
+import org.rogach.scallop.ScallopConf
 
 import java.io.{File, PrintWriter}
 import java.util.Scanner
@@ -13,13 +14,14 @@ import java.util.Scanner
 /** This is the main class of the project */
 object Query {
 
+
     /**
      * Main of the whole application.
      *
      * @param args arguments
      */
     def main(args: Array[String]): Unit = {
-        val conf = new Conf(args)
+        val conf = new Conf2(args)
         run(
             inTable = conf.tbl.getOrElse("inTable").replace("trajectory.", ""),
             minsize = conf.minsize.getOrElse(1000),
@@ -31,8 +33,8 @@ object Query {
             euclidean = conf.euclidean.getOrElse(true),
             querytype = conf.querytype.getOrElse("export"),
             limit = conf.limit.getOrElse(1000000),
-            limitItemsets = 1,
-            additionalFeatures = conf.additionalfeatures.getOrElse(List())
+            additionalFeatures = conf.additionalfeatures.getOrElse(List()),
+            limitItemsets = 1 // conf.itemsetsLimit.getOrElse(1)
         )
     }
 
@@ -44,27 +46,30 @@ object Query {
      */
     def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, querytype: String, limit: Int, limitItemsets: Int, additionalFeatures: List[String]): Unit = {
         querytype match {
-            case "export" => exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures)
+            case "export" => exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures, "")
+            case "user" => exportData2(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures)
         }
     }
 
     /** Export original and binned data from the valid patterns */
-    def exportData(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String]): Unit = {
-        println(additionalFeatures)
+    def exportData(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String], userid: String): Unit = {
         val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn")
         val epst = if (eps_t == Int.MaxValue) "Infinity" else eps_t.toString
+        val semf =  (if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _))
+        val selectTrajectories = if (userid.isEmpty) s"trajectory.${inTable}" else s"(select * from trajectory.${inTable} where userid = '$userid')"
+        val selectItemset = if (userid.isEmpty) s"(select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${semf}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__summary order by support desc, size asc limit $limitItemsets) a join" else ""
         val sql = //  order by 2 desc limit 2
             s"""select i.itemsetid, t.itemid, t.tid, t.latitude as bin_latitude, t.longitude as bin_longitude, t.time_bucket as bin_timestamp, u.tileid as in_support, s.userid, s.trajectoryid, s.`timestamp`, s.latitude, s.longitude ${if (additionalFeatures.isEmpty) "" else ", " + additionalFeatures.reduce(_ + ", " + _)}
-               |from (select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__summary order by support desc, size asc limit $limitItemsets) a
-               |     join ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__itemset i on (a.itemsetid = i.itemsetid)
-               |     join ctm.tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t} t on (t.itemid = i.itemid)
-               |     left join ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__support u on (t.tid = u.tileid and i.itemsetid = u.itemsetid)
-               |     join trajectory.${inTable} s on (t.userid = s.userid and t.trajectoryid = s.trajectoryid
+               |from $selectItemset
+               |     ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${semf}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__itemset i ${if (selectItemset.nonEmpty) "on (a.itemsetid = i.itemsetid)" else ""}
+               |     join ctm.tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${semf} t on (t.itemid = i.itemid)
+               |     left join ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${semf}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__support u on (t.tid = u.tileid and i.itemsetid = u.itemsetid)
+               |     join $selectTrajectories s on (t.userid = s.userid and t.trajectoryid = s.trajectoryid
                |        ${if (additionalFeatures.isEmpty) "" else "and " + additionalFeatures.zipWithIndex.map(i => s"split(t.semf, '-')[${i._2}] = s.${i._1}").reduce(_ + " and " + _) }
                |        and ${computeTimeBin(timescale, bin_t, column = "s.`timestamp`")} = t.time_bucket
                |        and ${computeLatitudeQuery(euclidean, bin_s, "s.latitude")} = t.latitude
                |        and ${computeLongitudeQuery(euclidean, bin_s, "s.longitude")} = t.longitude)""".stripMargin
-        var tablename = s"join__${inTable}__${minsize}__${minsup}__${bin_s}__${timescale.value}__${bin_t}" + (if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _))
+        var tablename = s"join__${inTable}__${minsize}__${minsup}__${bin_s}__${timescale.value}__${bin_t}${semf}" + (if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _))
 
         println(s"SQL:\n$sql")
         sparkSession.sql("use ctm")
@@ -85,7 +90,7 @@ object Query {
         println(hdfsCommand)
         pw.write(s"$hdfsCommand\n")
 
-        tablename = s"tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}" + (if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _))
+        tablename = s"tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${semf}" + (if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _))
 
         hivequery = s"select itemid, latitude, longitude, time_bucket from $tablename"
         hiveCommand = s"hive -e 'set hive.cli.print.header=true; use ctm; $hivequery' > $tablename.tsv"
@@ -102,6 +107,15 @@ object Query {
         execCmd("./saveQuery.sh")
     }
 
+    /** Export original and binned data from the valid patterns */
+    def exportData2(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String]): Unit = {
+        println("user")
+        val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn")
+        val sql = s"""select userid, count(*) as c from trajectory.${inTable} group by userid order by c desc limit 1"""
+        val userid: String = sparkSession.sql(sql).collect()(0).get(0).toString
+        exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, lmt, limitItemsets, additionalFeatures, userid)
+    }
+
     @throws[java.io.IOException]
     def execCmd(cmd: String) = {
         val proc = Runtime.getRuntime.exec(cmd)
@@ -113,4 +127,36 @@ object Query {
         else `val` = ""
         println(`val`)
     }
+}
+
+/**
+ * Class to be used to parse CLI commands, the values declared inside specify name and type of the arguments to parse.
+ *
+ * @param arguments the programs arguments as an array of strings.
+ */
+//class Conf2(arguments: Seq[String]) extends Conf(arguments) {
+class Conf2(arguments: Seq[String]) extends ScallopConf(arguments) {
+    val querytype = opt[String]()
+    val tbl = opt[String]()
+    val limit = opt[Int]()
+    val minsize = opt[Int]()
+    val minsup = opt[Int]()
+    val euclidean = opt[Boolean]()
+    val platoon = opt[Boolean]()
+    val bins = opt[Int]()
+    val epss = opt[Double]()
+    val repfreq = opt[Int]()
+    val storagethr = opt[Int]()
+    val nexecutors = opt[Int]()
+    val ncores = opt[Int]()
+    val maxram = opt[String]()
+    val timescale = opt[String]()
+    val unitt = opt[Int]()
+    val bint = opt[Int]()
+    val epst = opt[Double]()
+    val debug = opt[Boolean](required = true)
+    val droptable = opt[Boolean]()
+    val returnresult = opt[Boolean]()
+    val additionalfeatures = opt[List[String]]()
+    verify()
 }
