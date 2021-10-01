@@ -3,15 +3,14 @@ package it.unibo.big
 import it.unibo.big.Main._
 import it.unibo.big.Utils._
 import it.unibo.big.temporal.TemporalCellBuilder._
-import it.unibo.big.temporal.{TemporalCellBuilder, TemporalScale}
 import it.unibo.big.temporal.TemporalScale._
+import it.unibo.big.temporal.{TemporalCellBuilder, TemporalScale}
 import org.apache.log4j.Logger
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.roaringbitmap.RoaringBitmap
 import org.rogach.scallop.ScallopConf
-import it.unibo.big.CTM
 
 object Main {
     val linesToPrint = 20
@@ -69,7 +68,7 @@ object Main {
                 minsup = conf.minsup(),
                 platoon = conf.platoon(),
                 returnResult = conf.returnresult(),
-                additionalfeatures = conf.additionalfeatures()
+                additionalfeatures = conf.additionalfeatures.getOrElse(List[String]())
             )
         }
     }
@@ -139,7 +138,8 @@ class Main {
                 s"-sup_$minsup" +
                 s"-bins_$bin_s" +
                 s"-ts_${timeScale.value}" +
-                s"-bint_$bin_t"
+                s"-bint_$bin_t" +
+                (if (additionalfeatures.isEmpty) "" else s"-semf_" + additionalfeatures.reduce(_ + _))
         conf = // Define the generic name for the run, including temporary table name
             "CTM" + temporaryTableName +
                 s"-epss_${if (eps_s.isInfinite) eps_s.toString else eps_s.toInt}" +

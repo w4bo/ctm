@@ -64,7 +64,7 @@ object Query {
                |        and ${computeTimeBin(timescale, bin_t, column = "s.`timestamp`")} = t.time_bucket
                |        and ${computeLatitudeQuery(euclidean, bin_s, "s.latitude")} = t.latitude
                |        and ${computeLongitudeQuery(euclidean, bin_s, "s.longitude")} = t.longitude)""".stripMargin
-        var tablename = s"join__${inTable}__${minsize}__${minsup}__${bin_s}__${timescale.value}__${bin_t}"
+        var tablename = s"join__${inTable}__${minsize}__${minsup}__${bin_s}__${timescale.value}__${bin_t}" + (if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _))
 
         println(s"SQL:\n$sql")
         sparkSession.sql("use ctm")
@@ -85,7 +85,8 @@ object Query {
         println(hdfsCommand)
         pw.write(s"$hdfsCommand\n")
 
-        tablename = s"tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}"
+        tablename = s"tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}" + (if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _))
+
         hivequery = s"select itemid, latitude, longitude, time_bucket from $tablename"
         hiveCommand = s"hive -e 'set hive.cli.print.header=true; use ctm; $hivequery' > $tablename.tsv"
         hdfsCommand = s"hdfs dfs -put $tablename.tsv /user/mfrancia/spare/input"
