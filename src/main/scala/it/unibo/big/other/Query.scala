@@ -1,6 +1,5 @@
 package it.unibo.big.other
 
-import it.unibo.big.Conf
 import it.unibo.big.Utils._
 import it.unibo.big.temporal.TemporalCellBuilder._
 import it.unibo.big.temporal.TemporalScale
@@ -34,7 +33,8 @@ object Query {
             querytype = conf.querytype.getOrElse("export"),
             limit = conf.limit.getOrElse(1000000),
             additionalFeatures = conf.additionalfeatures.getOrElse(List()),
-            limitItemsets = 1 // conf.itemsetsLimit.getOrElse(1)
+            limitItemsets = conf.itemsetlimit.getOrElse(1),
+            userid = conf.userid.getOrElse("")
         )
     }
 
@@ -44,10 +44,10 @@ object Query {
      * @param minsup  Minimum support of the co-movement patterns (i.e., how long trajectories moved together)
      * @param bin_s   bin_s \in N (1, ..., n). Multiply cell size 123m x bin_s
      */
-    def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, querytype: String, limit: Int, limitItemsets: Int, additionalFeatures: List[String]): Unit = {
+    def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, querytype: String, limit: Int, limitItemsets: Int, additionalFeatures: List[String], userid: String): Unit = {
         querytype match {
-            case "export" => exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures, "")
-            case "user" => exportData2(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures)
+            case "export" => exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures, userid)
+            case "user" => exportData2(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures, userid)
         }
     }
 
@@ -55,7 +55,7 @@ object Query {
     def exportData(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String], userid: String): Unit = {
         val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn")
         val epst = if (eps_t == Int.MaxValue) "Infinity" else eps_t.toString
-        val semf =  (if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _))
+        val semf = if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _)
         val selectTrajectories = if (userid.isEmpty) s"trajectory.${inTable}" else s"(select * from trajectory.${inTable} where userid = '$userid')"
         val selectItemset = if (userid.isEmpty) s"(select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${semf}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__summary order by support desc, size asc limit $limitItemsets) a join" else ""
         val sql = //  order by 2 desc limit 2
@@ -69,7 +69,7 @@ object Query {
                |        and ${computeTimeBin(timescale, bin_t, column = "s.`timestamp`")} = t.time_bucket
                |        and ${computeLatitudeQuery(euclidean, bin_s, "s.latitude")} = t.latitude
                |        and ${computeLongitudeQuery(euclidean, bin_s, "s.longitude")} = t.longitude)""".stripMargin
-        var tablename = s"join__${inTable}__${minsize}__${minsup}__${bin_s}__${timescale.value}__${bin_t}${semf}" + (if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _))
+        var tablename = s"join__${inTable}__${minsize}__${minsup}__${bin_s}__${timescale.value}__${bin_t}${semf}"
 
         println(s"SQL:\n$sql")
         sparkSession.sql("use ctm")
@@ -108,12 +108,14 @@ object Query {
     }
 
     /** Export original and binned data from the valid patterns */
-    def exportData2(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String]): Unit = {
-        println("user")
-        val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn")
-        val sql = s"""select userid, count(*) as c from trajectory.${inTable} group by userid order by c desc limit 1"""
-        val userid: String = sparkSession.sql(sql).collect()(0).get(0).toString
-        exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, lmt, limitItemsets, additionalFeatures, userid)
+    def exportData2(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String], userid: String = ""): Unit = {
+        var id = userid
+        if (id.isEmpty) {
+            val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn")
+            val sql = s"""select userid, count(*) as c from trajectory.${inTable} group by userid order by c desc limit 1"""
+            id = sparkSession.sql(sql).collect()(0).get(0).toString
+        }
+        exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, lmt, limitItemsets, additionalFeatures, id)
     }
 
     @throws[java.io.IOException]
@@ -137,6 +139,8 @@ object Query {
 //class Conf2(arguments: Seq[String]) extends Conf(arguments) {
 class Conf2(arguments: Seq[String]) extends ScallopConf(arguments) {
     val querytype = opt[String]()
+    val userid = opt[String]()
+    val itemsetlimit = opt[Int]()
     val tbl = opt[String]()
     val limit = opt[Int]()
     val minsize = opt[Int]()
