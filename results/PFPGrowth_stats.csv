@@ -1,0 +1,6 @@
+time(ms),intable,minsize,minsup,nitemsets,repfreq,limit,nexecutors,ncores,maxram,timescale,bint,epst,bins,epss,semf
+293507,trajectory.hermopoulis_standard1_200,10,20,240828256,1,1000000,10,2,8g,absolute,60,Infinity,19,Infinity,
+970417,trajectory.hermopoulis_standard1_200,10,19,638572748,1,1000000,10,2,8g,absolute,60,Infinity,19,Infinity,
+2697742,trajectory.hermopoulis_standard1_200,10,18,1819299840,1,1000000,10,2,8g,absolute,60,Infinity,19,Infinity,
+7219749,trajectory.hermopoulis_standard1_200,10,17,5665424404,1,1000000,10,2,8g,absolute,60,Infinity,19,Infinity,
+9600000,trajectory.hermopoulis_standard1_200,10,16,5665424404,1,1000000,10,2,8g,absolute,60,Infinity,19,Infinity,
