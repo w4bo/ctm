@@ -56,7 +56,7 @@ object Query {
     /** Export original and binned data from the valid patterns */
     def exportData(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String], userid: String): Unit = {
         val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn")
-        val epst = if (eps_t == Int.MaxValue) "Infinity" else eps_t.toString
+        val epst = if (eps_t == Int.MaxValue || eps_t == Double.PositiveInfinity) "Infinity" else eps_t.toString
         val semf = if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _)
         val selectTrajectories = if (userid.isEmpty) s"trajectory.${inTable}" else s"(select * from trajectory.${inTable} where userid = '$userid')"
         val selectItemset = if (userid.isEmpty) s"(select itemsetid, support from ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${semf}__epss_Infinity__epst_${epst}__freq_1__sthr_1000000__summary order by support desc, size asc limit $limitItemsets) a join" else ""
@@ -110,8 +110,8 @@ object Query {
     }
 
     def statistics(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, eps_s: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String], userid: String = "") = {
-        val epst = if (eps_t == Int.MaxValue) "Infinity" else eps_t.toString
-        val epss = if (eps_s == Int.MaxValue) "Infinity" else eps_s.toString
+        val epst = if (eps_t == Int.MaxValue || eps_t == Double.PositiveInfinity) "Infinity" else eps_t.toInt.toString
+        val epss = if (eps_s == Int.MaxValue || eps_s == Double.PositiveInfinity) "Infinity" else eps_s.toInt.toString
         val semf = if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _)
         val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn", nexecutors = 10, maxram = "12g")
         println("statistics")
