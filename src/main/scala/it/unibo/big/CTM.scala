@@ -243,7 +243,7 @@ object CTM {
                     .map({ case (i: RoaringBitmap, _: Boolean, _: RoaringBitmap, _: RoaringBitmap, _: RoaringBitmap) => Array[(RoaringBitmap, Int, Int)]((i, i.getCardinality, support(i).getCardinality)) })
                     .fold(Array.empty[(RoaringBitmap, Int, Int)])(_ ++ _)
             }
-        writeStatsToFile(outTable2, inTable, mCrd, mSup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, bin_t, eps_t, bin_s, eps_s, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum, acc, acc2, accmLen, accmCrd, accmSup)
+        writeStatsToFile(outTable2, inTable, mCrd, mSup, nItemsets, storage_thr, repfreq, limit, nexecutors, ncores, maxram, timeScale, bin_t, eps_t, bin_s, eps_s, additionalfeatures, nTransactions, brdTrajInCell.value.values.map(_.getSizeInBytes + 4).sum, if (brdNeighborhood.isEmpty) 0 else brdNeighborhood.get.value.values.map(_.getSizeInBytes + 4).sum, acc, acc2, accmLen, accmCrd, accmSup)
         spark.sparkContext.getPersistentRDDs.foreach(i => i._2.unpersist())
         spark.catalog.clearCache()
         spark.sqlContext.clearCache()

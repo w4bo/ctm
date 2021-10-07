@@ -48,9 +48,9 @@ object PFPGrowth {
         outputFile.createNewFile()
         val bw = new BufferedWriter(new FileWriter(fileName, fileExists))
         if (!fileExists) {
-            bw.write("time(ms),inTable,minsize,minsup,nItemsets,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s\n".replace("_", "").toLowerCase)
+            bw.write("time(ms),inTable,minsize,minsup,nItemsets,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s,semf\n".replace("_", "").toLowerCase)
         }
-        bw.write(s"${CustomTimer.getElapsedTime},${conf.tbl()},${conf.minsize()},${conf.minsup()},$nItemsets,${conf.repfreq()},${conf.limit()},${conf.nexecutors()},${conf.ncores()},${conf.maxram()},${conf.timescale()},${conf.bint()},${conf.epst()},${conf.bins()},${conf.epss()}\n")
+        bw.write(s"${CustomTimer.getElapsedTime},${conf.tbl()},${conf.minsize()},${conf.minsup()},$nItemsets,${conf.repfreq()},${conf.limit()},${conf.nexecutors()},${conf.ncores()},${conf.maxram()},${conf.timescale()},${conf.bint()},${conf.epst()},${conf.bins()},${conf.epss()},${conf.additionalfeatures.getOrElse(List("")).reduce(_ + "-" + _)}\n")
         bw.close()
     }
 }
