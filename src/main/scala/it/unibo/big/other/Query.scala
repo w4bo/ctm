@@ -28,6 +28,7 @@ object Query {
             bin_s = conf.bins.getOrElse(20),
             bin_t = conf.bint.getOrElse(5),
             eps_t = conf.epst.getOrElse(Double.PositiveInfinity),
+            eps_s = conf.epss.getOrElse(Double.PositiveInfinity),
             timescale = TemporalScale(conf.timescale.getOrElse(AbsoluteScale.value)),
             euclidean = conf.euclidean.getOrElse(true),
             querytype = conf.querytype.getOrElse("export"),
@@ -44,10 +45,11 @@ object Query {
      * @param minsup  Minimum support of the co-movement patterns (i.e., how long trajectories moved together)
      * @param bin_s   bin_s \in N (1, ..., n). Multiply cell size 123m x bin_s
      */
-    def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, euclidean: Boolean, querytype: String, limit: Int, limitItemsets: Int, additionalFeatures: List[String], userid: String): Unit = {
+    def run(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, eps_s: Double, euclidean: Boolean, querytype: String, limit: Int, limitItemsets: Int, additionalFeatures: List[String], userid: String): Unit = {
         querytype match {
             case "export" => exportData(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures, userid)
             case "user" => exportData2(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, euclidean, limit, limitItemsets, additionalFeatures, userid)
+            case "stats" => statistics(inTable, minsize, minsup, bin_s, timescale, bin_t, eps_t, eps_s, euclidean, limit, limitItemsets, additionalFeatures, userid)
         }
     }
 
@@ -101,6 +103,61 @@ object Query {
         pw.write(s"$hdfsCommand\n")
 
         // df.repartition(1).write.option("sep", ",").option("header", "true").option("escape", "\"").option("quoteAll", "true").csv("file:////home/mfrancia/ctm/output/")
+        pw.close()
+
+        execCmd("chmod u+x saveQuery.sh")
+        execCmd("./saveQuery.sh")
+    }
+
+    def statistics(inTable: String, minsize: Int, minsup: Int, bin_s: Int, timescale: TemporalScale, bin_t: Int, eps_t: Double, eps_s: Double, euclidean: Boolean, lmt: Int, limitItemsets: Int, additionalFeatures: List[String], userid: String = "") = {
+        val epst = if (eps_t == Int.MaxValue) "Infinity" else eps_t.toString
+        val epss = if (eps_s == Int.MaxValue) "Infinity" else eps_s.toString
+        val semf = if (additionalFeatures.isEmpty) "" else s"__semf_" + additionalFeatures.reduce(_ + _)
+        val sparkSession = startSparkSession(appName = "QueryCTM", master = "yarn", nexecutors = 10, maxram = "12g")
+        println("statistics")
+        sparkSession.sql("use ctm")
+
+        def getSQL(f: Boolean) = {
+            val sql =
+                s"""
+                   |   select a.latitude, a.longitude, a.time_bucket, ${if (f) "a.semf, " else ""}count(distinct a.itemid) as c
+                   |   from
+                   |       (select distinct latitude, longitude, time_bucket, semf, tid, itemid from ctm.tmp_transactiontable__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${if (f) semf else ""}) a
+                   |       join
+                   |       (select distinct tileid from ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${if (f) semf else ""}__epss_${epss}__epst_${epst}__freq_1__sthr_1000000__support) b on (a.tid = b.tileid)
+                   |       join
+                   |       (select distinct itemid from ctm.CTM__tbl_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}${if (f) semf else ""}__epss_${epss}__epst_${epst}__freq_1__sthr_1000000__itemset) c on (a.itemid = c.itemid)
+                   |   group by a.latitude, a.longitude, a.time_bucket${if (f) ", a.semf" else ""}
+            """.stripMargin
+            val tableName = s"tmp_stats_$f"
+            println("\n")
+            println(sql)
+            println("\n")
+            sparkSession.sql(sql).write.mode(SaveMode.Overwrite).saveAsTable(tableName)
+        }
+
+        getSQL(false)
+        getSQL(true)
+
+        val sql =
+            s"""
+               |   select a.latitude, a.longitude, a.time_bucket, a.c, b.c as csemf
+               |   from
+               |       tmp_stats_false a
+               |       full outer join
+               |       tmp_stats_true b on (a.latitude = b.latitude and a.longitude = b.longitude and a.time_bucket = b.time_bucket)
+            """.stripMargin
+        val tableName = s"stats_${inTable}__lmt_${lmt}__size_${minsize}__sup_${minsup}__bins_${bin_s}__ts_${timescale.value}__bint_${bin_t}__epss_${epss}__epst_${epst}"
+        println("\n")
+        println(sql)
+        println("\n")
+        sparkSession.sql(sql).write.mode(SaveMode.Overwrite).saveAsTable(tableName)
+
+        val pw = new PrintWriter(new File("saveQuery.sh"))
+        val hivequery = s"select latitude, longitude, time_bucket, c, csemf from $tableName"
+        val hiveCommand = s"hive -e 'set hive.cli.print.header=true; use ctm; $hivequery' | sed 's/[\\t]/,/g'  > $tableName.csv"
+        println(hiveCommand)
+        pw.write(s"$hiveCommand\n")
         pw.close()
 
         execCmd("chmod u+x saveQuery.sh")
