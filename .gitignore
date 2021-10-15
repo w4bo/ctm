@@ -1,3 +1,5 @@
+saveQuery.sh
+stats_*.csv
 zeppelin_notebooks/
 outputs/*.csv
 results/dummy.pdf
