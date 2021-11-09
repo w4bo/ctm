@@ -156,7 +156,7 @@ object CTM {
                                 R.forEach(toJavaConsumer({ key: Integer => {
                                     acc2.add(1)
                                     // BEGIN - TESTING: For test purpose only, comment this function otherwise
-                                    // checkFilters(lCluster, lClusterSupport, XplusYplusKey, Rnew, key)
+                                    // checkFilters(lCluster, lClusterSupport, RoaringBitmap.add(XplusY, key, key + 1), Rnew, key)
                                     // END - TESTING
                                     // if (isValid(RoaringBitmap.or(XplusYplusKey, Rnew), mSup, brdNeighborhood)) { // if CT \cup RT contains a potentially valid pattern
                                     if (XplusY.getCardinality + Rnew.getCardinality >= mSup) {

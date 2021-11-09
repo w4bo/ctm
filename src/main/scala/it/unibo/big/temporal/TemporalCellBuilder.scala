@@ -1,5 +1,6 @@
 package it.unibo.big.temporal
 
+import it.unibo.big.Main
 import it.unibo.big.Utils._
 import it.unibo.big.temporal.TemporalScale._
 import org.apache.log4j.Logger
@@ -16,14 +17,13 @@ object TemporalCellBuilder {
     /**
      * Get input data (with bucketed time and location).
      *
-     * @param sparkSession the sparksession which will compute all the operations.
-     * @param tableName    the table name to be processed.
-     * @param timescale    time scale
-     * @param bin_t        size of the bin time
-     * @param unit_t       the unit size of the temporal cell, expressed in seconds.
-     * @param euclidean    boolean to activate the metric based on euclidean distance.
-     * @param bin_s        the border of the cell specified by input parameters.
-     * @throws InvalidTableSchemaException if the table schema does not meet the requirements.
+     * @param sparkSession       the sparksession which will compute all the operations.
+     * @param tableName          the table name to be processed.
+     * @param timescale          time scale
+     * @param bin_t              size of the bin time
+     * @param euclidean          boolean to activate the metric based on euclidean distance.
+     * @param bin_s              the border of the cell specified by input parameters.
+     * @param additionalfeatures additional features
      */
     def getData(sparkSession: SparkSession, tableName: String, outTable: String, timescale: TemporalScale, bin_t: Int, euclidean: Boolean, bin_s: Int, additionalfeatures: List[String]): Unit = {
         val binLatitude: String = computeLatitudeQuery(euclidean, bin_s)
@@ -34,6 +34,7 @@ object TemporalCellBuilder {
                |from $tableName
                |""".stripMargin
         )
+            .repartition(Main.partitions)
             .write.mode(SaveMode.ErrorIfExists)
             .saveAsTable(outTable)
             //.createOrReplaceTempView(outTable)
@@ -72,13 +73,13 @@ object TemporalCellBuilder {
      * @param outputTableName  the output table that will be stored on hive.
      * @return dataframe
      */
-    def getQuanta(sparkSession: SparkSession, transactionTable: String, outputTableName: String): Long = {
-        val storeHiveTbl =
-            s"""create table if not exists $outputTableName as
-               |    select distinct * from $transactionTable
-               """.stripMargin
-        L.debug(s"--- Generating `$outputTableName` table\n$storeHiveTbl")
-        sparkSession.sql(storeHiveTbl).count()
+    def getQuanta(sparkSession: SparkSession, transactionTable: String, outputTableName: String): Unit = {
+        L.debug(s"--- Generating `$outputTableName`")
+        sparkSession
+            .sql(s"select distinct tid, $LATITUDE_FIELD_NAME, $LONGITUDE_FIELD_NAME, $TIME_BUCKET_COLUMN_NAME, $SEMF_COLUMN_NAME from $transactionTable")
+            .repartition(Main.partitions, col("tid"))
+            .write.mode(SaveMode.ErrorIfExists)
+            .saveAsTable(outputTableName)
     }
 
     /**
@@ -142,6 +143,7 @@ object TemporalCellBuilder {
                     })
             })
             .toDF("tid", "itemid", USER_ID_FIELD, TRAJECTORY_ID_FIELD, LATITUDE_FIELD_NAME, LONGITUDE_FIELD_NAME, TIME_BUCKET_COLUMN_NAME, SEMF_COLUMN_NAME)
+            .repartition(Main.partitions)
             .write.mode(SaveMode.ErrorIfExists)
             .saveAsTable(transactionTable)
     }
@@ -172,12 +174,15 @@ object TemporalCellBuilder {
             case _ => throw new IllegalArgumentException(s"Cannot compute neighborhood for $temporalScale")
         }
         val computeTimeDistanceUDF = udf(computeTimeDistanceFunction)
+
         val computeSpaceDistanceUDF = euclidean match {
             case false => udf((l1: Double, l2: Double, l3: Double, l4: Double) => (Distances.haversine(l1, l2, l3, l4) * 1000).toInt)
             case true => udf((l1: Double, l2: Double, l3: Double, l4: Double) => Distances.euclideanDistance(l1, l2, l3, l4).toInt)
         }
+
         spark
             .sql(query)
+            .repartition(Main.partitions)
             .withColumn(TIME_DISTANCE_COLUMN_NAME, computeTimeDistanceUDF(col("t1"), col("t2")))
             .withColumn(SPACE_DISTANCE_COLUMN_NAME, computeSpaceDistanceUDF(col("l1"), col("l2"), col("l3"), col("l4")))
             .write.mode(SaveMode.ErrorIfExists)
