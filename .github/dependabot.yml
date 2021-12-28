@@ -1,0 +1,33 @@
+version: 2
+updates:
+- package-ecosystem: gradle
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "04:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: com.github.johnrengelman.shadow
+    versions:
+    - 6.1.0
+  - dependency-name: org.scala-lang:scala-library
+    versions:
+    - 2.13.4
+  - dependency-name: org.scala-lang:scala-compiler
+    versions:
+    - 2.13.4
+  - dependency-name: org.scala-lang:scala-reflect
+    versions:
+    - 2.13.4
+  - dependency-name: org.scalatest:scalatest_2.11
+    versions:
+    - 3.3.0-SNAP3
+  - dependency-name: com.github.maiflai.scalatest
+    versions:
+    - "0.30"
+  - dependency-name: org.apache.spark:spark-mllib_2.11
+    versions:
+    - 2.4.7
+  - dependency-name: org.apache.spark:spark-yarn_2.11
+    versions:
+    - 2.4.7
