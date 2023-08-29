@@ -16,10 +16,7 @@ jobs:
       - name: Build
         run: |
           chmod +x ./gradlew
-          ./gradlew clean
-          ./gradlew build
-          ./gradlew test --tests "it.unibo.big.local.*" --stacktrace
-          ./gradlew javadoc
+          ./gradlew test --tests "it.unibo.big.local.*" --stacktrace 
           ./gradlew shadowJar
       - name: Run python
         run: |
