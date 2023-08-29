@@ -26,3 +26,9 @@ jobs:
           cd src/main/python/CTM
           pip install -r requirements.txt
           jupyter nbconvert --execute --to notebook --inplace charts.ipynb
+      - name: Release
+        run: |
+          npm install
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
