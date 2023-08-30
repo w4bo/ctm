@@ -1,7 +1,8 @@
 package it.unibo.big.localTests
 
-import it.unibo.big.Main._
+import it.unibo.big.Main
 import it.unibo.big.Utils._
+import it.unibo.big.localTests.TestPaper.{neigh, sparkSession}
 import it.unibo.big.temporal.TemporalScale._
 import org.apache.log4j.{Level, LogManager, Logger}
 import org.apache.spark.sql.SparkSession
