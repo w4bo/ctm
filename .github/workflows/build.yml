@@ -16,7 +16,7 @@ jobs:
       - name: Build
         run: |
           chmod +x ./gradlew
-          ./gradlew test --tests "it.unibo.big.local.*" --stacktrace 
+          ./gradlew test --tests "it.unibo.big.local.*" --stacktrace --scan
           ./gradlew shadowJar
       - name: Run python
         run: |
