@@ -1,9 +1,9 @@
 saveQuery.sh
 stats_*.csv
-zeppelin_notebooks/
-outputs/*.csv
-results/dummy.pdf
-metastore_db/
+**/zeppelin_notebooks/
+**/outputs/*.csv
+**/results/dummy.pdf
+**/metastore_db/
 
 # These are useless since we use gradle import
 .idea/
