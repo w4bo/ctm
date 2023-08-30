@@ -1,4 +1,4 @@
-package it.unibo.big
+package it.unibo.big.local
 
 import junit.framework.TestCase.assertTrue
 import org.apache.log4j.Logger

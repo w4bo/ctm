@@ -1,7 +1,8 @@
-package it.unibo.big
+package it.unibo.big.cluster
 
-import it.unibo.big.TestOnCluster.sparkSession
+import it.unibo.big.cluster.TestOnCluster.sparkSession
 import it.unibo.big.temporal.TemporalScale.{AbsoluteScale, DailyScale, NoScale, WeeklyScale}
+import it.unibo.big.{Main, TestPaper, Utils}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Row, SparkSession}
 import org.junit.jupiter.api.Assertions._

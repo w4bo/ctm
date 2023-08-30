@@ -585,3 +585,20 @@ show tblproperties trajectory.cariploenr6; -- 52 982 734 664 B (parquet)
 -- END: compression size
 -- ---------------------------------------------------------------------------------------------------------------------
 >>>>>>> 1f0a26d9b0cd67f7e4bfa715210eb8f6d500e507
+
+-- PLOT the empyrical complexity
+-- create a reduced dataset
+drop table hermopoulis_standard_1000;
+create table hermopoulis_standard_1000 as
+select *
+from hermopoulis_standard
+where concat_ws('-', userid, trajectoryid) in
+      (select concat_ws('-', userid, trajectoryid) from (select userid, trajectoryid, count(*) as c from hermopoulis_standard group by userid, trajectoryid limit 1000) a); --  order by c desc
+-- get the average trajectory length (l)
+select avg(c)
+from (
+         select concat_ws('-', userid, trajectoryid), count(distinct tid) c from  ctm.tmp_transactiontable__tbl_hermopoulis_standard_1000__lmt_1000000__size_10__sup_1__bins_19__ts_notime__bint_1 group by concat_ws('-', userid, trajectoryid)
+     ) a;
+-- get the tessellation cardinality
+select count(distinct tid) from ctm.tmp_transactiontable__tbl_hermopoulis_standard_1000__lmt_1000000__size_10__sup_1__bins_19__ts_notime__bint_1__semf_mobilityplaceactivity;
+select * from ctm.tmp_celltoid__tbl_hermopoulis_standard_1000__lmt_1000000__size_10__sup_1__bins_19__ts_notime__bint_1__semf_mobilityplaceactivity;

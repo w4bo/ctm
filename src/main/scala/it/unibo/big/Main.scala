@@ -3,15 +3,14 @@ package it.unibo.big
 import it.unibo.big.Main._
 import it.unibo.big.Utils._
 import it.unibo.big.temporal.TemporalCellBuilder._
-import it.unibo.big.temporal.{TemporalCellBuilder, TemporalScale}
 import it.unibo.big.temporal.TemporalScale._
+import it.unibo.big.temporal.{TemporalCellBuilder, TemporalScale}
 import org.apache.log4j.Logger
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.roaringbitmap.RoaringBitmap
 import org.rogach.scallop.ScallopConf
-import it.unibo.big.CTM
 
 object Main {
     val linesToPrint = 20
@@ -41,6 +40,17 @@ object Main {
     var euclidean: Boolean = _
     var additionalfeatures: List[String] = _
 
+    def getDefaultTableName(inTable: String, minsize: Tid, minsup: Tid, limit: Tid, timeScale: TemporalScale, bin_t: Tid, bin_s: Tid, additionalfeatures: List[String]) = {
+        s"-tbl_${inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length)}" +
+            s"-lmt_${if (limit == Int.MaxValue) "Infinity" else limit}" +
+            s"-size_$minsize" +
+            s"-sup_$minsup" +
+            s"-bins_$bin_s" +
+            s"-ts_${timeScale.value}" +
+            s"-bint_$bin_t" +
+            (if (additionalfeatures.isEmpty) "" else s"-semf_" + additionalfeatures.reduce(_ + _))
+    }
+
     /**
      * Main of the whole application.
      *
@@ -69,7 +79,7 @@ object Main {
                 minsup = conf.minsup(),
                 platoon = conf.platoon(),
                 returnResult = conf.returnresult(),
-                additionalfeatures = conf.additionalfeatures()
+                additionalfeatures = conf.additionalfeatures.getOrElse(List[String]())
             )
         }
     }
@@ -131,15 +141,8 @@ class Main {
         Main.euclidean = euclidean
         Main.additionalfeatures = additionalfeatures
 
-        val temporaryTableName: String = // Define the generic name of the support table, based on the relevant parameters for cell creation.
-            s"-tbl_${inTable.substring(Math.max(0, inTable.indexOf(".") + 1), inTable.length)}" +
-                // {inTable.replace("trajectory.", "")}" +
-                s"-lmt_${if (limit == Int.MaxValue) "Infinity" else limit}" +
-                s"-size_$minsize" +
-                s"-sup_$minsup" +
-                s"-bins_$bin_s" +
-                s"-ts_${timeScale.value}" +
-                s"-bint_$bin_t"
+        // Define the generic name of the support table, based on the relevant parameters for cell creation.
+        val temporaryTableName: String = getDefaultTableName(inTable, minsize, minsup, limit, timeScale, bin_t, bin_s, additionalfeatures)
         conf = // Define the generic name for the run, including temporary table name
             "CTM" + temporaryTableName +
                 s"-epss_${if (eps_s.isInfinite) eps_s.toString else eps_s.toInt}" +
@@ -253,6 +256,7 @@ class Main {
         /** run the algorithm. */
         CTM.CTM(sparkSession, trans, brdNeighborhood, minsup, minsize, platoon)
     }
+
 }
 
 /**
@@ -281,7 +285,6 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
     val debug = opt[Boolean](required = true)
     val droptable = opt[Boolean]()
     val returnresult = opt[Boolean]()
-    val querytype = opt[String]()
     val additionalfeatures = opt[List[String]]()
     verify()
 }

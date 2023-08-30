@@ -1,0 +1,31 @@
+name: "Build"
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.0.0
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+      - name: Build
+        run: |
+          chmod +x ./gradlew
+          ./gradlew test --tests "it.unibo.big.local.*" --stacktrace 
+          ./gradlew shadowJar
+      - name: Run python
+        run: |
+          cd src/main/python/CTM
+          pip install -r requirements.txt
+          jupyter nbconvert --execute --to notebook --inplace charts.ipynb
+      - name: Release
+        run: |
+          npm install
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

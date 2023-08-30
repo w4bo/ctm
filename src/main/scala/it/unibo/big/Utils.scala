@@ -147,7 +147,7 @@ object Utils {
                          nexecutors: Int, ncores: Int, maxram: String, // SPARK CONFIGURATION
                          timescale: TemporalScale, bin_t: Int, eps_t: Double,
                          bin_s: Int, eps_s: Double, // EFFECTIVENESS PARAMETERS
-                         nTransactions: Long, brdTrajInCell_bytes: Int, brdNeighborhood_bytes: Int,
+                         additionalFeatures: List[String], nTransactions: Long, brdTrajInCell_bytes: Int, brdNeighborhood_bytes: Int,
                          acc: LongAccumulator, acc2: LongAccumulator, accmLen: LongAccumulator,
                          accmCrd: LongAccumulator, accmSup: LongAccumulator): Unit = {
         val fileExists = Files.exists(Paths.get(fileName))
@@ -155,9 +155,9 @@ object Utils {
         outputFile.createNewFile()
         val bw = new BufferedWriter(new FileWriter(fileName, fileExists))
         if (!fileExists) {
-            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,nTransactions,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s,exploredpatterns,exploredpatterns2,accmLen,accmCrd,accmSup\n".replace("_", "").toLowerCase)
+            bw.write("time(ms),brdNeighborhood_bytes,brdTrajInCell_bytes,nTransactions,inTable,minsize,minsup,nItemsets,storage_thr,repfreq,limit,nexecutors,ncores,maxram,timescale,bin_t,eps_t,bin_s,eps_s,exploredpatterns,exploredpatterns2,accmLen,accmCrd,accmSup,semf\n".replace("_", "").toLowerCase)
         }
-        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s,${acc.value},${acc2.value},${1.0 * accmLen.value / acc2.value},${1.0 * accmCrd.value / acc2.value},${1.0 * accmSup.value / acc2.value}\n")
+        bw.write(s"${CustomTimer.getElapsedTime},$brdNeighborhood_bytes,$brdTrajInCell_bytes,$nTransactions,$inTable,$minsize,$minsup,$nItemsets,$storage_thr,$repfreq,$limit,$nexecutors,$ncores,$maxram,$timescale,$bin_t,$eps_t,$bin_s,$eps_s,${acc.value},${acc2.value},${1.0 * accmLen.value / acc2.value},${1.0 * accmCrd.value / acc2.value},${1.0 * accmSup.value / acc2.value},${if(additionalFeatures.isEmpty) "none" else additionalFeatures.reduce(_ + "-" + _)}\n")
         bw.close()
     }
 

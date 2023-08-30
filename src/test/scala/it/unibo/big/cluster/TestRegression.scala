@@ -1,8 +1,9 @@
-package it.unibo.big
+package it.unibo.big.cluster
 
-import it.unibo.big.TestRegression.sparkSession
+import it.unibo.big.cluster.TestRegression.sparkSession
 import it.unibo.big.temporal.TemporalScale
 import it.unibo.big.temporal.TemporalScale.AbsoluteScale
+import it.unibo.big.{Main, TestPaper}
 import org.apache.spark.sql.SparkSession
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.{BeforeAll, Test}

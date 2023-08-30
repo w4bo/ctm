@@ -1,5 +1,6 @@
-package it.unibo.big
+package it.unibo.big.local
 
+import it.unibo.big.Carpenter
 import it.unibo.big.Carpenter.Itemset
 import org.junit.jupiter.api.Assertions._
 import org.junit.jupiter.api.{AfterEach, BeforeEach, Test}

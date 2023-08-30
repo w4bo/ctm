@@ -1,4 +1,4 @@
-package it.unibo.big
+package it.unibo.big.local
 
 import it.unibo.big.temporal.WeeklyHourTimeStamp
 import org.junit.jupiter.api.Test
