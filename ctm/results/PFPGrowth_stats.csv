@@ -6,7 +6,6 @@ time(ms),intable,minsize,minsup,nitemsets,repfreq,limit,nexecutors,ncores,maxram
 9600000,trajectory.hermopoulis_standard1_200,10,16,5665424404,1,1000000,10,2,8g,absolute,60,Infinity,19,Infinity,
 4841,trajectory.oldenburg_standard_2000_distinct,10,35,26464,1,1000000,10,2,8g,absolute,1,Infinity,20,Infinity,
 3602,trajectory.oldenburg_standard_2000_distinct,10,34,33488,1,1000000,10,2,8g,absolute,1,Infinity,20,Infinity,
-
 3577,trajectory.oldenburg_standard_2000_distinct,10,35,26464,1,1000000,10,2,8g,absolute,1,Infinity,20,Infinity,
 3696,trajectory.oldenburg_standard_2000_distinct,10,34,33488,1,1000000,10,2,8g,absolute,1,Infinity,20,Infinity,
 15090,trajectory.oldenburg_standard_2000_distinct,10,25,7259824,1,1000000,10,2,8g,absolute,1,Infinity,20,Infinity,
