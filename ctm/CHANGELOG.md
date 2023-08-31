@@ -1,3 +1,24 @@
+## [1.0.2](https://github.com/w4bo/ctm/compare/1.0.1...1.0.2) (2023-08-31)
+
+
+### Dependency updates
+
+* **deps:** update dependency gradle to v6.5.1 ([d4bc611](https://github.com/w4bo/ctm/commit/d4bc611c4915c94b841b6cddeaa7393536dfee0e))
+* **deps:** update dependency numpy to v1.22.4 ([92d9978](https://github.com/w4bo/ctm/commit/92d9978813c7314862df4b1f0680f3653f4d0f31))
+* **deps:** update dependency pandas to v1.4.4 ([239ab2c](https://github.com/w4bo/ctm/commit/239ab2cf2fd4cd59dfa433580b22674866c059ae))
+* **deps:** update dependency scipy to v1.10.1 ([019dce8](https://github.com/w4bo/ctm/commit/019dce892e2d95a854f7d67335e49b00af357ce1))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.52 ([d0036da](https://github.com/w4bo/ctm/commit/d0036da16a9e3ff29852f207d484080f4dac9f88))
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.slf4j:slf4j-api to v1.7.36 ([beb348c](https://github.com/w4bo/ctm/commit/beb348cd7c99610f3d5dd4a3f5b238b0d52b5145))
+
+
+### Build and continuous integration
+
+* **deps:** update actions/checkout action to v3.0.2 ([c98704e](https://github.com/w4bo/ctm/commit/c98704e106fd6ab19d7c54438f3f7b5ee06dc982))
+
 ## [1.0.1](https://github.com/w4bo/ctm/compare/1.0.0...1.0.1) (2023-08-30)
 
 
