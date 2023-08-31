@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/w4bo/ctm/compare/1.0.2...1.0.3) (2023-08-31)
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.slf4j:slf4j-simple to v1.7.36 ([8a3a6eb](https://github.com/w4bo/ctm/commit/8a3a6ebfbb9d28ebcb6c2d9220288278238ecca0))
+
 ## [1.0.2](https://github.com/w4bo/ctm/compare/1.0.1...1.0.2) (2023-08-31)
 
 
