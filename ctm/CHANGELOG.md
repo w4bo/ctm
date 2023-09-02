@@ -1,3 +1,29 @@
+## [1.0.5](https://github.com/w4bo/ctm/compare/1.0.4...1.0.5) (2023-09-02)
+
+
+### Dependency updates
+
+* **deps:** update dependency gradle to v6.9.4 ([b56d8f2](https://github.com/w4bo/ctm/commit/b56d8f2e1e1cd11c9724cc496897457993448103))
+* **deps:** update dependency matplotlib to v3.7.2 ([a03cb28](https://github.com/w4bo/ctm/commit/a03cb2836517832e4e9977e4e0b0f70257a0dc5e))
+* **deps:** update dependency notebook to v6.5.5 ([bc5a39c](https://github.com/w4bo/ctm/commit/bc5a39c74fc04fe58a1bb12fbcc6b21215d64998))
+* **deps:** update dependency numpy to v1.25.2 ([9e25b82](https://github.com/w4bo/ctm/commit/9e25b8237c82a15ee89ab6835e61e799670224cb))
+* **deps:** update dependency pandas to v1.5.3 ([1c07dba](https://github.com/w4bo/ctm/commit/1c07dbabb66a12ee1c12354ce52a5dd88f561417))
+* **deps:** update dependency scikit-learn to v1.3.0 ([dc67917](https://github.com/w4bo/ctm/commit/dc6791793a8ccb530165e6f72bc577419adc4e4a))
+* **deps:** update dependency scipy to v1.11.2 ([94dd406](https://github.com/w4bo/ctm/commit/94dd406e0a3178a4dc391db1ca0bbd631c97d71c))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.53 ([f4eb931](https://github.com/w4bo/ctm/commit/f4eb93198b627d1098c7d8be80f94291a36f27ea))
+* **deps:** update plugin com.github.alisiikh.scalastyle to v3.5.0 ([926958a](https://github.com/w4bo/ctm/commit/926958ae98aea501125e06bc1f4b11066956e270))
+* **deps:** update plugin com.github.johnrengelman.shadow to v6.1.0 ([ea472f8](https://github.com/w4bo/ctm/commit/ea472f825107ab88eac0cf2723875fe35d60d014))
+
+
+### Bug Fixes
+
+* **deps:** update dependency com.google.guava:guava to v23.6.1-jre ([13c938a](https://github.com/w4bo/ctm/commit/13c938ade7a9c8f2b8cc87b8c5e3132c8b39baf8))
+
+
+### Build and continuous integration
+
+* **deps:** update actions/checkout action to v3.6.0 ([c446da8](https://github.com/w4bo/ctm/commit/c446da880258c683028baab1b59a7053b729bd74))
+
 ## [1.0.4](https://github.com/w4bo/ctm/compare/1.0.3...1.0.4) (2023-09-01)
 
 
