@@ -1,3 +1,10 @@
+## [1.0.9](https://github.com/w4bo/ctm/compare/1.0.8...1.0.9) (2023-09-03)
+
+
+### Bug Fixes
+
+* **deps:** update junit5 monorepo to v5.10.0 ([a9d4856](https://github.com/w4bo/ctm/commit/a9d48560b10a4d2857fc83a82455e4ee57c877ed))
+
 ## [1.0.8](https://github.com/w4bo/ctm/compare/1.0.7...1.0.8) (2023-09-03)
 
 
