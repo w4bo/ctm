@@ -1,3 +1,10 @@
+## [1.0.6](https://github.com/w4bo/ctm/compare/1.0.5...1.0.6) (2023-09-03)
+
+
+### Bug Fixes
+
+* **deps:** update dependency com.vladsch.flexmark:flexmark-all to v0.64.8 ([dd89194](https://github.com/w4bo/ctm/commit/dd89194ad5c180abcc903e1f755312362f35e4cd))
+
 ## [1.0.5](https://github.com/w4bo/ctm/compare/1.0.4...1.0.5) (2023-09-02)
 
 
