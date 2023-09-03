@@ -1,3 +1,10 @@
+## [1.0.8](https://github.com/w4bo/ctm/compare/1.0.7...1.0.8) (2023-09-03)
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.datasyslab:geospark-sql_2.3 to v1.3.1 ([1e7c234](https://github.com/w4bo/ctm/commit/1e7c234d1527c85aaef807ab90c7e35691bcd8e5))
+
 ## [1.0.7](https://github.com/w4bo/ctm/compare/1.0.6...1.0.7) (2023-09-03)
 
 
