@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4
         with:
           python-version: '3.10'
-      - uses: olafurpg/setup-scala@56b893ae09c48f21c16a9793a107c2723ccc123a # v13
+      - uses: olafurpg/setup-scala@32ffa16635ff8f19cc21ea253a987f0fdf29844c # v14
         with:
           java-version: adopt@1.11
       - name: Build
