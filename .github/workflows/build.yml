@@ -13,7 +13,7 @@ jobs:
         working-directory: ./ctm
     steps:
       - uses: actions/checkout@v3.6.0
-      - uses: actions/setup-python@3542bca2639a428e1796aaa6a2ffef0c0f575566 # v3
+      - uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4
         with:
           python-version: '3.10'
       - uses: olafurpg/setup-scala@v11
