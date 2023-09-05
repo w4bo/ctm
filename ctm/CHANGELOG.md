@@ -1,3 +1,10 @@
+## [1.0.12](https://github.com/w4bo/ctm/compare/1.0.11...1.0.12) (2023-09-05)
+
+
+### Bug Fixes
+
+* **deps:** update dependency com.google.guava:guava to v26 ([a76da4e](https://github.com/w4bo/ctm/commit/a76da4e2602748699388ccf09d6bd4693b9c2ebc))
+
 ## [1.0.11](https://github.com/w4bo/ctm/compare/1.0.10...1.0.11) (2023-09-05)
 
 
