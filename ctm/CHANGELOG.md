@@ -1,3 +1,25 @@
+## [1.0.10](https://github.com/w4bo/ctm/compare/1.0.9...1.0.10) (2023-09-05)
+
+
+### Dependency updates
+
+* **deps:** update dependency notebook to v7 ([98d09f8](https://github.com/w4bo/ctm/commit/98d09f8c3f9c738434a31eab9493f164b9245c05))
+
+
+### Bug Fixes
+
+* **deps:** update dependency com.google.guava:guava to v24 ([3650e89](https://github.com/w4bo/ctm/commit/3650e89fe501348613a2cbf3ef7d863115d586ed))
+
+
+### Build and continuous integration
+
+* **deps:** update actions/checkout action to v4 ([4117a0f](https://github.com/w4bo/ctm/commit/4117a0fea16d3cc57170ca4dd5b4c70a282eb6c1))
+* **deps:** update actions/setup-python action to v3 ([e2225fd](https://github.com/w4bo/ctm/commit/e2225fdd80ee8760810dd573c559b80f34ca3fda))
+* **deps:** update actions/setup-python action to v4 ([a3f7a90](https://github.com/w4bo/ctm/commit/a3f7a90b78a6aa6eeca86d85177b1accd358b1ad))
+* **deps:** update olafurpg/setup-scala action to v12 ([da21cb9](https://github.com/w4bo/ctm/commit/da21cb92040ea9ba0b246bf030c246343721b3c3))
+* **deps:** update olafurpg/setup-scala action to v13 ([aeab592](https://github.com/w4bo/ctm/commit/aeab5925cc9458df75063e15f2bab8d5f8fbe96e))
+* **deps:** update olafurpg/setup-scala action to v14 ([0f68676](https://github.com/w4bo/ctm/commit/0f6867671b7aa14cd1d997994674a8adb493c1ef))
+
 ## [1.0.9](https://github.com/w4bo/ctm/compare/1.0.8...1.0.9) (2023-09-03)
 
 
