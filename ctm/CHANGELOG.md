@@ -1,3 +1,10 @@
+## [1.0.15](https://github.com/w4bo/ctm/compare/1.0.14...1.0.15) (2023-09-06)
+
+
+### Bug Fixes
+
+* **deps:** update dependency com.google.guava:guava to v29 ([cacc144](https://github.com/w4bo/ctm/commit/cacc14465d383634f0ec797cfd887e7e266a3349))
+
 ## [1.0.14](https://github.com/w4bo/ctm/compare/1.0.13...1.0.14) (2023-09-06)
 
 
