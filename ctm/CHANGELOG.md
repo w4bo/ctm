@@ -1,3 +1,10 @@
+## [1.0.17](https://github.com/w4bo/ctm/compare/1.0.16...1.0.17) (2023-09-07)
+
+
+### Bug Fixes
+
+* **deps:** update dependency com.google.guava:guava to v31 ([f446aa9](https://github.com/w4bo/ctm/commit/f446aa9b2b25273e1b69a866362cc157f6a9f26e))
+
 ## [1.0.16](https://github.com/w4bo/ctm/compare/1.0.15...1.0.16) (2023-09-07)
 
 
