@@ -1,3 +1,10 @@
+## [1.0.18](https://github.com/w4bo/ctm/compare/1.0.17...1.0.18) (2023-09-07)
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.rogach:scallop_2.11 to v4 ([99cd679](https://github.com/w4bo/ctm/commit/99cd6795ae910b5bc5ddddec9662a3ccf267216d))
+
 ## [1.0.17](https://github.com/w4bo/ctm/compare/1.0.16...1.0.17) (2023-09-07)
 
 
