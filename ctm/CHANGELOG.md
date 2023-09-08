@@ -1,3 +1,10 @@
+## [1.0.20](https://github.com/w4bo/ctm/compare/1.0.19...1.0.20) (2023-09-08)
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.slf4j:slf4j-api to v2 ([cc2c461](https://github.com/w4bo/ctm/commit/cc2c461647268816cfed0653737b20b5f615f315))
+
 ## [1.0.19](https://github.com/w4bo/ctm/compare/1.0.18...1.0.19) (2023-09-07)
 
 
