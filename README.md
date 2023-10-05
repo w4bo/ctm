@@ -4,7 +4,7 @@ Colossal Trajectory Mining (CTM) detects co-movement patterns inside large scale
 A spatio-temporal references is partitioned in tiles, each tiles has a fixed spatial area and a temporal size.
 Then, for each tile is computed the set of trajectories whose at least one point is inside the tile boundaries.
 
-The version used for tests is 1.0.0
+The version used for tests is 1.0.21
 
 ## Input dataset
 
