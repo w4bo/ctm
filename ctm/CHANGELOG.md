@@ -1,3 +1,50 @@
+## [1.0.22](https://github.com/w4bo/ctm/compare/1.0.21...1.0.22) (2023-11-05)
+
+
+### Dependency updates
+
+* **deps:** update dependency matplotlib to v3.7.3 ([12ed398](https://github.com/w4bo/ctm/commit/12ed3987171708c4ab6a56f1b21b77ece1e01d2b))
+* **deps:** update dependency notebook to v7.0.4 ([7ffc38d](https://github.com/w4bo/ctm/commit/7ffc38d2dab0cd92f8b209f0e65c7b9fa65abaf6))
+* **deps:** update dependency notebook to v7.0.5 ([66f2b63](https://github.com/w4bo/ctm/commit/66f2b6350e75a7ab8722554413a37a735a2e2e6d))
+* **deps:** update dependency notebook to v7.0.6 ([f1972da](https://github.com/w4bo/ctm/commit/f1972da38fbb359adf21df12a76b85bfcef7fbe8))
+* **deps:** update dependency numpy to v1.26.0 ([5644435](https://github.com/w4bo/ctm/commit/564443509023206f082652731f018c989c586ffc))
+* **deps:** update dependency numpy to v1.26.1 ([ec38012](https://github.com/w4bo/ctm/commit/ec3801208d4fb332235e831400804d78d473200c))
+* **deps:** update dependency scikit-learn to v1.3.1 ([3546c2c](https://github.com/w4bo/ctm/commit/3546c2c88f3e3121e6e668242694e478abecf168))
+* **deps:** update dependency scikit-learn to v1.3.2 ([b03b51f](https://github.com/w4bo/ctm/commit/b03b51f4907233c66b9e945b44ae26991b1aaa0e))
+* **deps:** update dependency scipy to v1.11.3 ([196b627](https://github.com/w4bo/ctm/commit/196b627d29384d2da7c9b9e2af30729f39c3541c))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.54 ([52b800c](https://github.com/w4bo/ctm/commit/52b800c43e2bf4dd0181217f29e79c3993dc9b6f))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.55 ([9a6348c](https://github.com/w4bo/ctm/commit/9a6348c598dfc366fda832d18999a5946221d6bf))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.56 ([3669813](https://github.com/w4bo/ctm/commit/366981317d620936d216d43fba63da3b9e5309ac))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.58 ([2e7342e](https://github.com/w4bo/ctm/commit/2e7342e959af1d232a70400aa5024b7c26cc9fc9))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.59 ([2b7a38b](https://github.com/w4bo/ctm/commit/2b7a38b90ca97ec04092a143d3dc418d8d86f994))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.60 ([e4caf6d](https://github.com/w4bo/ctm/commit/e4caf6d83dbf340af68c408473c19ef4ecf4b713))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.61 ([759177f](https://github.com/w4bo/ctm/commit/759177fc6993b619e993da01b934f3f947a1115a))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.62 ([527314b](https://github.com/w4bo/ctm/commit/527314b618b76c038b81d3c1eb65259eddc23468))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.63 ([0ff74ff](https://github.com/w4bo/ctm/commit/0ff74ff3eeb555f088afadad0e97ad6e63a58522))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.64 ([3f737ef](https://github.com/w4bo/ctm/commit/3f737ef3aed1c48a57f757ebb432b895d802fae4))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.65 ([45235b0](https://github.com/w4bo/ctm/commit/45235b059f7aa464644c2e9cf8a0d420a2b80c6e))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.66 ([b2e3f76](https://github.com/w4bo/ctm/commit/b2e3f76fbb1b19eaae6d8b29cf3e4ee67f27d1c0))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.67 ([147934a](https://github.com/w4bo/ctm/commit/147934ab1add1ff64949595cc55d194f40e05487))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.68 ([88c0551](https://github.com/w4bo/ctm/commit/88c05516d146704ec41c175fa3be463981764828))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.69 ([cac8929](https://github.com/w4bo/ctm/commit/cac8929b1ede539542483aade1ec748cf0e4ed05))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.70 ([900049b](https://github.com/w4bo/ctm/commit/900049bbf857563272acab285063a280bd759d21))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.71 ([d1bffdc](https://github.com/w4bo/ctm/commit/d1bffdc19781204a75f0484a747cb501faad535e))
+* **deps:** update node.js to 18.18 ([379848f](https://github.com/w4bo/ctm/commit/379848f9f13b073d5dc4a936c1c76ec4d6744372))
+* **deps:** update node.js to 20.9 ([48f33fa](https://github.com/w4bo/ctm/commit/48f33fac608dc68f41a10fee2558faad4eb1b201))
+* **deps:** update node.js to v20 ([cd4b150](https://github.com/w4bo/ctm/commit/cd4b150bffcf697ba3f32e45ce0246eeebff4e70))
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.rogach:scallop_2.11 to v5.0.1 ([5a48e0a](https://github.com/w4bo/ctm/commit/5a48e0a0b5a03b73e2a7b7547013cf011965a1e0))
+
+
+### Build and continuous integration
+
+* **deps:** update actions/checkout action to v4.1.0 ([862b8ac](https://github.com/w4bo/ctm/commit/862b8ac2cc82589c89eb3982b72052726d1d8aac))
+* **deps:** update actions/checkout action to v4.1.1 ([58ba9df](https://github.com/w4bo/ctm/commit/58ba9dfb8a8754f105876adc6ad60e5571e32ddc))
+* **deps:** update actions/setup-python digest to 65d7f2d ([9d32757](https://github.com/w4bo/ctm/commit/9d32757ed2956e18a2d2d1e31938a584fb762258))
+
 ## [1.0.21](https://github.com/w4bo/ctm/compare/1.0.20...1.0.21) (2023-09-08)
 
 
