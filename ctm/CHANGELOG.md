@@ -1,3 +1,37 @@
+## [1.0.24](https://github.com/w4bo/ctm/compare/1.0.23...1.0.24) (2023-12-29)
+
+
+### Dependency updates
+
+* **deps:** update dependency matplotlib to v3.7.4 ([29ed0ae](https://github.com/w4bo/ctm/commit/29ed0ae56e08f1d17a8419483446b7dfb7bbe65a))
+* **deps:** update dependency numpy to v1.26.2 ([a5b37de](https://github.com/w4bo/ctm/commit/a5b37ded26305670074a5b79c38c7da141c6c4c6))
+* **deps:** update dependency scipy to v1.11.4 ([5d8e45d](https://github.com/w4bo/ctm/commit/5d8e45d7c248a1ada38586977f97fa91ec232b18))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.72 ([6212ae4](https://github.com/w4bo/ctm/commit/6212ae49e5b2370fc67e6fed2e019ec43241f74b))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.73 ([34de0c7](https://github.com/w4bo/ctm/commit/34de0c7b37e28066b1bd8f3abb12a551030fa2d6))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.74 ([e27299f](https://github.com/w4bo/ctm/commit/e27299f0d9a9ae6518c596681d63e8add6e1d2f9))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.75 ([cddfcbc](https://github.com/w4bo/ctm/commit/cddfcbc700fdc9a777f3fefd8946ec5821824619))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.76 ([7a3ef51](https://github.com/w4bo/ctm/commit/7a3ef511aa10033ed2b56e6c19868a0034e5aeae))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.77 ([bc572be](https://github.com/w4bo/ctm/commit/bc572bef23c33d9b66aaf9380c18a2d8be434f7f))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.78 ([037e5cd](https://github.com/w4bo/ctm/commit/037e5cd47cfe4a41b41eeb4ac8ec0adf3c2acb63))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.79 ([1e6b1c9](https://github.com/w4bo/ctm/commit/1e6b1c9730b4e65fe6510b9494b78b24d26d427f))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.80 ([0323669](https://github.com/w4bo/ctm/commit/0323669471284043dce5fb90b428f28c9b25bab3))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.81 ([25fc7a5](https://github.com/w4bo/ctm/commit/25fc7a5a1db6495cd83da2f7fd0806d3ab3adb8b))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.82 ([b7c3c55](https://github.com/w4bo/ctm/commit/b7c3c5515606b302eeb6b512b1cc694a10600a2c))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.83 ([9bf93f6](https://github.com/w4bo/ctm/commit/9bf93f65e41ef0c5e618d383ad905442ba7b8ec0))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.84 ([ae45f92](https://github.com/w4bo/ctm/commit/ae45f922d766e2f9fb6894a5ee39d9ebea785587))
+* **deps:** update dependency semantic-release-preconfigured-conventional-commits to v1.1.85 ([63ae077](https://github.com/w4bo/ctm/commit/63ae0777b5f74fce62ad40f1f7a16eaf50fe94e8))
+* **deps:** update node.js to 20.10 ([fd6f158](https://github.com/w4bo/ctm/commit/fd6f1587b0591bd9b29a65191475db14d9cae810))
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.slf4j:slf4j-api to v2.0.10 ([1c8584d](https://github.com/w4bo/ctm/commit/1c8584da0c9366861051d8cb6971ecb674dd4374))
+
+
+### Build and continuous integration
+
+* **deps:** update actions/setup-python action to v5 ([e75cc61](https://github.com/w4bo/ctm/commit/e75cc61180692045f4f3d1040019229dda340a03))
+
 ## [1.0.23](https://github.com/w4bo/ctm/compare/1.0.22...1.0.23) (2023-11-05)
 
 
