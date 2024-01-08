@@ -1,3 +1,15 @@
+## [1.0.26](https://github.com/w4bo/ctm/compare/1.0.25...1.0.26) (2024-01-08)
+
+
+### Dependency updates
+
+* **deps:** update dependency numpy to v1.26.3 ([992ff07](https://github.com/w4bo/ctm/commit/992ff072e9cd3159ba384a7cad9e1f27a414b12f))
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.slf4j:slf4j-api to v2.0.11 ([0f629f6](https://github.com/w4bo/ctm/commit/0f629f61c2e56cf0ce93ffec0afebe6476c0e3ec))
+
 ## [1.0.25](https://github.com/w4bo/ctm/compare/1.0.24...1.0.25) (2023-12-29)
 
 
