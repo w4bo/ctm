@@ -1,3 +1,10 @@
+## [1.0.27](https://github.com/w4bo/ctm/compare/1.0.26...1.0.27) (2024-01-09)
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.slf4j:slf4j-simple to v2.0.11 ([a90052f](https://github.com/w4bo/ctm/commit/a90052f342119ebf7dbf3630de5bc5e872fcb3ff))
+
 ## [1.0.26](https://github.com/w4bo/ctm/compare/1.0.25...1.0.26) (2024-01-08)
 
 
