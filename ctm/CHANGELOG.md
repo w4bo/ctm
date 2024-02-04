@@ -1,3 +1,18 @@
+## [1.0.28](https://github.com/w4bo/ctm/compare/1.0.27...1.0.28) (2024-02-04)
+
+
+### Dependency updates
+
+* **deps:** update dependency notebook to v7.0.7 [security] ([0f3e129](https://github.com/w4bo/ctm/commit/0f3e129674117c837030a82cc9eb612f10ba435a))
+* **deps:** update dependency scikit-learn to v1.4.0 ([f756ceb](https://github.com/w4bo/ctm/commit/f756cebb4575a97caf709a65a29bab0fc76cf326))
+* **deps:** update dependency scipy to v1.12.0 ([1f62723](https://github.com/w4bo/ctm/commit/1f627231124a4c2d5b124e76f1b7a2e8ad8535f7))
+* **deps:** update node.js to 20.11 ([e819928](https://github.com/w4bo/ctm/commit/e819928c0d9f7f5dad3cb00e0ba47433af0e9dad))
+
+
+### Bug Fixes
+
+* **deps:** update junit5 monorepo to v5.10.2 ([56122f8](https://github.com/w4bo/ctm/commit/56122f89a5d6ee78178686068284ce8579c8510e))
+
 ## [1.0.27](https://github.com/w4bo/ctm/compare/1.0.26...1.0.27) (2024-01-09)
 
 
