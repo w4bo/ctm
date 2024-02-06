@@ -1,3 +1,10 @@
+## [1.0.29](https://github.com/w4bo/ctm/compare/1.0.28...1.0.29) (2024-02-06)
+
+
+### Bug Fixes
+
+* **deps:** update slf4j monorepo to v2.0.12 ([1ec60d1](https://github.com/w4bo/ctm/commit/1ec60d1c5200e8a059b2eace9bc87fadcee587f2))
+
 ## [1.0.28](https://github.com/w4bo/ctm/compare/1.0.27...1.0.28) (2024-02-04)
 
 
