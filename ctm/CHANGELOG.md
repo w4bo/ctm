@@ -1,3 +1,21 @@
+## [1.0.30](https://github.com/w4bo/ctm/compare/1.0.29...1.0.30) (2024-03-16)
+
+
+### Dependency updates
+
+* **deps:** update dependency matplotlib to v3.7.5 ([55799e4](https://github.com/w4bo/ctm/commit/55799e4208843185cd0129ca4e8538165312c24a))
+* **deps:** update dependency notebook to v7.0.8 ([1dd0ed2](https://github.com/w4bo/ctm/commit/1dd0ed2175650d6b838f3c524662545f726dcbd8))
+* **deps:** update dependency notebook to v7.1.0 ([1fc1709](https://github.com/w4bo/ctm/commit/1fc17092463ab56f4b521dd05b7857f75b9a05f2))
+* **deps:** update dependency notebook to v7.1.1 ([fdbe0e5](https://github.com/w4bo/ctm/commit/fdbe0e57230a9e7e51c54fef715d404d6d1559a3))
+* **deps:** update dependency notebook to v7.1.2 ([33526e8](https://github.com/w4bo/ctm/commit/33526e8d5caaa4051589ef2d91d94f0a5a5d735c))
+* **deps:** update dependency numpy to v1.26.4 ([e2a17d5](https://github.com/w4bo/ctm/commit/e2a17d53f340bb5863ae037c8f1b1d3a6b8391f8))
+* **deps:** update dependency scikit-learn to v1.4.1.post1 ([707d479](https://github.com/w4bo/ctm/commit/707d479046d186c1aa784ae91355ac18e2247b95))
+
+
+### Bug Fixes
+
+* **deps:** update dependency org.rogach:scallop_2.11 to v5.1.0 ([156de9f](https://github.com/w4bo/ctm/commit/156de9fcc3b944554e0bff8244ab3bf2b9e06611))
+
 ## [1.0.29](https://github.com/w4bo/ctm/compare/1.0.28...1.0.29) (2024-02-06)
 
 
