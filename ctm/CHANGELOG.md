@@ -1,3 +1,22 @@
+## [1.0.31](https://github.com/w4bo/ctm/compare/1.0.30...1.0.31) (2024-04-12)
+
+
+### Dependency updates
+
+* **deps:** update dependency scikit-learn to v1.4.2 ([1dd3a5b](https://github.com/w4bo/ctm/commit/1dd3a5b1d432d3f19c0b28ab4dfcb384c5264408))
+* **deps:** update dependency scipy to v1.13.0 ([662224e](https://github.com/w4bo/ctm/commit/662224e9419eaa73984d4921d42fc30dea40886b))
+* **deps:** update node.js to 20.12 ([406262a](https://github.com/w4bo/ctm/commit/406262ae9a372dda18d32b8a9fba1b82ece08376))
+
+
+### Bug Fixes
+
+* **deps:** update slf4j monorepo to v2.0.13 ([8c74765](https://github.com/w4bo/ctm/commit/8c7476505e5cced8f01ab5836e47826f3f97d43a))
+
+
+### Build and continuous integration
+
+* **deps:** update actions/setup-python digest to 82c7e63 ([741550c](https://github.com/w4bo/ctm/commit/741550ca93e2bd0c48d88ab6e7741537da17fe13))
+
 ## [1.0.30](https://github.com/w4bo/ctm/compare/1.0.29...1.0.30) (2024-03-16)
 
 
