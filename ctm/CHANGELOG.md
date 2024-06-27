@@ -1,3 +1,32 @@
+## [1.0.32](https://github.com/w4bo/ctm/compare/1.0.31...1.0.32) (2024-06-27)
+
+
+### Dependency updates
+
+* **deps:** update dependency notebook to v7.1.3 ([4eaf06c](https://github.com/w4bo/ctm/commit/4eaf06cdb0831e9aa0d642b9789a73aaa505bc8e))
+* **deps:** update dependency notebook to v7.2.0 ([49317f1](https://github.com/w4bo/ctm/commit/49317f11a17dbaf2954449f2d5e9275d99fa8887))
+* **deps:** update dependency notebook to v7.2.1 ([5c1b416](https://github.com/w4bo/ctm/commit/5c1b4164fab2b915d0a52f8965bb06acf565ca17))
+* **deps:** update dependency scikit-learn to v1.5.0 ([1ed12b2](https://github.com/w4bo/ctm/commit/1ed12b2dc550457d6ec0346130d001c3b9cd2a95))
+* **deps:** update dependency scipy to v1.13.1 ([ae44a79](https://github.com/w4bo/ctm/commit/ae44a79c5a9fe6893a6b351265355e05b82f77f7))
+* **deps:** update dependency scipy to v1.14.0 ([5621c0e](https://github.com/w4bo/ctm/commit/5621c0e45785d65e1ed997644a719d488157a13f))
+* **deps:** update node.js to 20.13 ([9f825b4](https://github.com/w4bo/ctm/commit/9f825b4a95ccbfa02619b03e9512677e6561d37e))
+* **deps:** update node.js to 20.14 ([3689855](https://github.com/w4bo/ctm/commit/368985559b4b7d159ed163b9c70aa249d46fdbe8))
+* **deps:** update node.js to 20.15 ([e5bbe1a](https://github.com/w4bo/ctm/commit/e5bbe1a15578f4f0ffc5d31225c17e2a45ff677a))
+
+
+### Bug Fixes
+
+* **deps:** update junit5 monorepo to v5.10.3 ([05981cc](https://github.com/w4bo/ctm/commit/05981ccd598d7ca03c1b9588ade0e545abfbd979))
+
+
+### Build and continuous integration
+
+* **deps:** update actions/checkout action to v4.1.3 ([8d2fe83](https://github.com/w4bo/ctm/commit/8d2fe839a171f08cbf9234aa2921c3a6c398d701))
+* **deps:** update actions/checkout action to v4.1.4 ([0d5ebda](https://github.com/w4bo/ctm/commit/0d5ebda83a5480bf536355d6419eb3307c99cfc1))
+* **deps:** update actions/checkout action to v4.1.5 ([ab5f65a](https://github.com/w4bo/ctm/commit/ab5f65ad99f2db1e99f1eab0e3b08649b65b447e))
+* **deps:** update actions/checkout action to v4.1.6 ([3d06ef7](https://github.com/w4bo/ctm/commit/3d06ef73442f9815ed2acb9c1d18062c3507d05b))
+* **deps:** update actions/checkout action to v4.1.7 ([2fbb70c](https://github.com/w4bo/ctm/commit/2fbb70c650090b5de44838365375da8d32050367))
+
 ## [1.0.31](https://github.com/w4bo/ctm/compare/1.0.30...1.0.31) (2024-04-12)
 
 
